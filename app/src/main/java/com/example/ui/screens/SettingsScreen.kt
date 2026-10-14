@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.SpeechModelSettings
 import com.example.ui.components.SpeechReaderSettings
+import com.example.ui.components.OmniVoiceModelSettings
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.EditorFontChoice
 import com.example.ui.theme.withKhmerFont
@@ -78,6 +79,7 @@ fun SettingsScreen(
   val autosaveIntervalMinutes by viewModel.autosaveIntervalMinutes.collectAsState()
   val allNotes by viewModel.allNotes.collectAsState()
   val speechModel by viewModel.speechModelState.collectAsState()
+  val omniModel by viewModel.omniVoiceModelState.collectAsState()
   val speechSettings by viewModel.speechPreferences.collectAsState()
   val androidVoices by viewModel.availableAndroidVoices.collectAsState()
 
@@ -404,6 +406,13 @@ fun SettingsScreen(
         onVoice = { viewModel.setSpeechVoice(it) },
         onSpeed = { viewModel.setReadAloudSpeed(it) },
         onBackground = { viewModel.setBackgroundReading(it) }
+      )
+
+      OmniVoiceModelSettings(
+        state = omniModel,
+        onRefresh = { viewModel.refreshOmniVoiceModels() },
+        onDownload = { viewModel.downloadOmniVoiceModels() },
+        onDelete = { viewModel.deleteOmniVoiceModels() }
       )
 
       SpeechModelSettings(
