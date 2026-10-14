@@ -45,6 +45,7 @@ fun SpeechPlayerBar(
   state: ReadAloudState,
   preferences: SpeechPreferences,
   androidVoices: List<String>,
+  omniInstalled: Boolean,
   onToggle: () -> Unit,
   onStop: () -> Unit,
   onSeek: (Int) -> Unit,
@@ -94,7 +95,7 @@ fun SpeechPlayerBar(
             SpeechEngine.entries.forEach { engine ->
               DropdownMenuItem(
                 text = { Text(engine.label) },
-                enabled = engine != SpeechEngine.OMNIVOICE,
+                enabled = engine != SpeechEngine.OMNIVOICE || omniInstalled,
                 onClick = { onEngine(engine); modelMenu = false }
               )
             }
