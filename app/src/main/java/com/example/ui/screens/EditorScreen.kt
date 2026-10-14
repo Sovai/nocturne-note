@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Preview
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VerticalSplit
@@ -84,6 +85,7 @@ import com.example.ui.components.ExportDialog
 import com.example.ui.components.FindAndReplaceBar
 import com.example.ui.components.FormattingBar
 import com.example.ui.components.MarkdownPreviewView
+import com.example.ui.components.SpeechPlayerBar
 import com.example.ui.components.VersionHistorySheet
 import com.example.ui.theme.KhmerFontVisualTransformation
 import com.example.ui.viewmodel.EditorViewMode
@@ -101,6 +103,7 @@ fun EditorScreen(
   val context = LocalContext.current
 
   val editorState by viewModel.editorState.collectAsState()
+  val readAloudState by viewModel.readAloudState.collectAsState()
   val editorTextFieldValue by viewModel.editorTextFieldValue.collectAsState()
   val activeNoteVersions by viewModel.activeNoteVersions.collectAsState()
   val searchState by viewModel.editorSearch.collectAsState()
@@ -236,6 +239,14 @@ fun EditorScreen(
             }
           },
           actions = {
+            IconButton(
+              onClick = { viewModel.startReadAloud() },
+              modifier = Modifier.testTag("editor_read_aloud_button")
+            ) {
+              Icon(Icons.Default.RecordVoiceOver, contentDescription = "Read selected text or note",
+                tint = MaterialTheme.colorScheme.primary)
+            }
+
             // Quick Save Button with State Feedback
             IconButton(
               onClick = { viewModel.saveActiveNote() },
@@ -409,6 +420,16 @@ fun EditorScreen(
               }
             }
           }
+        }
+
+        if (readAloudState.active || readAloudState.error != null) {
+          SpeechPlayerBar(
+            state = readAloudState,
+            onToggle = { viewModel.toggleReadAloud() },
+            onStop = { viewModel.stopReadAloud() },
+            onSkip = { viewModel.skipReadAloudParagraph(it) },
+            onSpeed = { viewModel.setReadAloudSpeed(it) }
+          )
         }
 
         // Floating Accessory Formatting Bar (visible in Edit mode)
