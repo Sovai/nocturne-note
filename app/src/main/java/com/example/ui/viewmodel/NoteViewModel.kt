@@ -4,6 +4,9 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
+import com.example.ui.editor.MarkdownEditorActions
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.db.AppDatabase
@@ -62,7 +65,7 @@ data class EditorState(
   val isPinned: Boolean = false,
   val isSaved: Boolean = true,
   val lastSavedTime: Long = System.currentTimeMillis(),
-  val viewMode: EditorViewMode = EditorViewMode.EDIT,
+  val viewMode: EditorViewMode = EditorViewMode.PREVIEW,
   val isZenMode: Boolean = false,
   val wordCount: Int = 0,
   val charCount: Int = 0,
@@ -167,6 +170,28 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   private val _editorState = MutableStateFlow(EditorState())
   val editorState: StateFlow<EditorState> = _editorState.asStateFlow()
 
+  // Retain selection and IME state when the formatting toolbar is tapped.
+  private val _editorTextFieldValue = MutableStateFlow(TextFieldValue())
+  val editorTextFieldValue: StateFlow<TextFieldValue> = _editorTextFieldValue.asStateFlow()
+
+  fun updateEditorTextFieldValue(value: TextFieldValue) {
+    _editorTextFieldValue.value = value
+    if (value.text != _editorState.value.content) updateContent(value.text)
+  }
+
+  private fun syncEditorText(content: String) {
+    val field = _editorTextFieldValue.value
+    if (field.text != content) {
+      _editorTextFieldValue.value = TextFieldValue(
+        text = content,
+        selection = TextRange(
+          field.selection.start.coerceIn(0, content.length),
+          field.selection.end.coerceIn(0, content.length)
+        )
+      )
+    }
+  }
+
   // Active Note Versions
   val activeNoteVersions: StateFlow<List<NoteVersionEntity>> = _editorState
     .flatMapLatest { state ->
@@ -258,7 +283,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
       isPinned = note.isPinned,
       isSaved = true,
       lastSavedTime = note.updatedAt,
-      viewMode = EditorViewMode.EDIT,
+      viewMode = EditorViewMode.PREVIEW,
       isZenMode = false,
       wordCount = words,
       charCount = chars,
@@ -266,6 +291,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
       canUndo = false,
       canRedo = false
     )
+    _editorTextFieldValue.value = TextFieldValue(note.content, TextRange(0))
     _editorSearch.value = EditorSearchState()
     _lastAutosaveStatus.value = "All changes saved"
     lastVersionSnapshotTime = System.currentTimeMillis()
@@ -297,6 +323,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
       canUndo = false,
       canRedo = false
     )
+    _editorTextFieldValue.value = TextFieldValue(initialContent, TextRange(initialContent.length))
     _editorSearch.value = EditorSearchState()
     _lastAutosaveStatus.value = "Unsaved draft"
     lastVersionSnapshotTime = 0L
@@ -312,6 +339,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   }
 
   fun updateContent(newContent: String) {
+    syncEditorText(newContent)
     val current = _editorState.value.content
     if (newContent != current) {
       if (undoStack.isEmpty() || undoStack.last() != current) {
@@ -350,6 +378,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
       redoStack.add(current)
 
       val words = if (prevContent.isBlank()) 0 else prevContent.trim().split("\\s+".toRegex()).size
+      syncEditorText(prevContent)
       _editorState.value = _editorState.value.copy(
         content = prevContent,
         isSaved = false,
@@ -370,6 +399,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
       undoStack.add(current)
 
       val words = if (nextContent.isBlank()) 0 else nextContent.trim().split("\\s+".toRegex()).size
+      syncEditorText(nextContent)
       _editorState.value = _editorState.value.copy(
         content = nextContent,
         isSaved = false,
@@ -555,6 +585,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
     val words = if (version.content.isBlank()) 0 else version.content.trim().split("\\s+".toRegex()).size
     val chars = version.content.length
 
+    syncEditorText(version.content)
     _editorState.value = _editorState.value.copy(
       title = version.title,
       content = version.content,
@@ -608,51 +639,53 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
   // --- Formatting Helpers & Keyboard Actions ---
 
+  private fun applyFormatting(value: TextFieldValue) {
+    updateEditorTextFieldValue(value)
+  }
+
   fun insertMarkdownSyntax(prefix: String, suffix: String = "", placeholder: String = "") {
-    val current = _editorState.value.content
-    val toInsert = if (placeholder.isNotEmpty()) "$prefix$placeholder$suffix" else "$prefix$suffix"
-    val updated = if (current.isEmpty()) toInsert else "$current\n$toInsert"
-    updateContent(updated)
+    applyFormatting(MarkdownEditorActions.wrap(_editorTextFieldValue.value, prefix, suffix, placeholder))
   }
 
-  fun formatBold() {
-    insertMarkdownSyntax("**", "**", "bold text")
-  }
+  fun formatBold() = insertMarkdownSyntax("**", "**", "bold text")
 
-  fun formatItalic() {
-    insertMarkdownSyntax("*", "*", "italic text")
-  }
+  fun formatItalic() = insertMarkdownSyntax("*", "*", "italic text")
 
-  fun formatUnderline() {
-    insertMarkdownSyntax("<u>", "</u>", "underlined text")
-  }
+  fun formatUnderline() = insertMarkdownSyntax("<u>", "</u>", "underlined text")
 
   fun formatBulletList() {
-    insertMarkdownSyntax("- ", placeholder = "bullet item")
+    applyFormatting(MarkdownEditorActions.prefixLines(_editorTextFieldValue.value, { "- " }, "bullet item"))
   }
 
   fun formatNumberedList() {
-    insertMarkdownSyntax("1. ", placeholder = "numbered item")
+    applyFormatting(MarkdownEditorActions.prefixLines(_editorTextFieldValue.value, { index -> (index + 1).toString() + ". " }, "numbered item"))
   }
 
   fun insertHeading(level: Int) {
-    val prefix = "#".repeat(level) + " "
-    insertMarkdownSyntax(prefix, placeholder = "Heading $level")
+    val prefix = "#".repeat(level.coerceIn(1, 6)) + " "
+    applyFormatting(MarkdownEditorActions.prefixLines(_editorTextFieldValue.value, { prefix }, "Heading $level"))
   }
 
   fun insertCheckboxTask() {
-    insertMarkdownSyntax("- [ ] ", placeholder = "New task item")
+    applyFormatting(MarkdownEditorActions.prefixLines(_editorTextFieldValue.value, { "- [ ] " }, "New task item"))
+  }
+
+  fun formatQuote() {
+    applyFormatting(MarkdownEditorActions.prefixLines(_editorTextFieldValue.value, { "> " }, "Quote"))
+  }
+
+  fun insertMarkdownBlock(block: String) {
+    applyFormatting(MarkdownEditorActions.insertBlock(_editorTextFieldValue.value, block))
   }
 
   fun insertTableTemplate() {
-    val table = """
+    insertMarkdownBlock(
+      """
 | Column 1 | Column 2 | Column 3 |
 | :--- | :--- | :--- |
 | Item 1 | Item 2 | Item 3 |
 """.trimIndent()
-    val current = _editorState.value.content
-    val updated = if (current.isEmpty()) table else "$current\n\n$table\n"
-    updateContent(updated)
+    )
   }
 
   // --- In-Editor Find & Replace ---
