@@ -130,6 +130,8 @@ class ReadAloudController(
   }
   private val resumePrefs = context.applicationContext.getSharedPreferences("nocturne_reader_position", Context.MODE_PRIVATE)
   private val audioCache = SpeechChunkCache(context.applicationContext)
+  private val edgeClient = EdgeTtsClient(context.applicationContext)
+  private val edgePlayer = EdgeAudioPlayer()
   private val _state = MutableStateFlow(ReadAloudState(speed = preferences.state.value.speed))
   val state = _state.asStateFlow()
   private val _availableAndroidVoices = MutableStateFlow<List<String>>(emptyList())
@@ -177,6 +179,7 @@ class ReadAloudController(
     if (paragraphs.isEmpty() || !_state.value.active) return
     session?.cancel()
     androidTts.stop()
+    edgePlayer.close()
     closeTrack()
     playFrom(index.coerceIn(0, paragraphs.lastIndex))
   }
@@ -201,13 +204,18 @@ class ReadAloudController(
     val current = _state.value
     if (!current.active) return
     if (current.playing) {
-      if (current.engine == "Android TTS") {
+      if (current.engine.startsWith("Edge Read Aloud")) {
+        edgePlayer.pause()
+      } else if (current.engine == "Android TTS") {
         session?.cancel()
         androidTts.stop()
       } else track?.pause()
       _state.value = current.copy(playing = false, paused = true)
     } else if (current.paused) {
-      if (current.engine == "Android TTS") playFrom(current.paragraph)
+      if (current.engine.startsWith("Edge Read Aloud")) {
+        edgePlayer.resume()
+        _state.value = current.copy(playing = true, paused = false)
+      } else if (current.engine == "Android TTS") playFrom(current.paragraph)
       else {
         track?.play()
         _state.value = current.copy(playing = true, paused = false)
@@ -224,7 +232,7 @@ class ReadAloudController(
     if (_state.value.active) skip(0)
   }
 
-  private data class Generated(val samples: SpeechAudio?, val engine: String)
+  private data class Generated(val samples: SpeechAudio?, val engine: String, val mp3: ByteArray? = null)
   private fun preferMms(settings: SpeechPreferences, text: String): Boolean =
     (settings.engine == SpeechEngine.MMS ||
       settings.engine == SpeechEngine.AUTO) &&
@@ -242,6 +250,12 @@ class ReadAloudController(
       var pending: kotlinx.coroutines.Deferred<Result<Generated>>? = null
 
       suspend fun render(chunk: String): Generated {
+        if (settings.engine == SpeechEngine.EDGE) {
+          val audio = edgeClient.synthesize(chunk, settings.edgeVoice,
+            settings.speed, settings.edgePitchHz)
+          currentCoroutineContext().ensureActive()
+          return Generated(null, "Edge Read Aloud · online", mp3 = audio)
+        }
         if (settings.engine == SpeechEngine.OMNIVOICE) {
           check(omniModels.state.value.installed) {
             "Download the OmniVoice ONNX model in Settings first."
@@ -314,12 +328,17 @@ class ReadAloudController(
           if (i < paragraphs.lastIndex) {
             pending = async(Dispatchers.IO) { runCatching { render(paragraphs[i + 1]) } }
           }
-          if (current.samples != null) {
+          if (current.mp3 != null) {
+            while (_state.value.paused) delay(35)
+            _state.value = _state.value.copy(engine = current.engine, playing = true,
+              loading = false, paused = false)
+            edgePlayer.play(current.mp3)
+          } else if (current.samples != null) {
             while (_state.value.paused) delay(35)
             _state.value = _state.value.copy(engine = current.engine, playing = true,
               loading = false, paused = false)
             playSamples(current.samples)
-            if (i < paragraphs.lastIndex && preferences.state.value.mmsPauseMs > 0) {
+            if (current.engine.startsWith("Khmer MMS") && i < paragraphs.lastIndex && preferences.state.value.mmsPauseMs > 0) {
               var remaining = preferences.state.value.mmsPauseMs.toLong()
               while (remaining > 0) {
                 currentCoroutineContext().ensureActive()
@@ -354,7 +373,10 @@ class ReadAloudController(
             runCatching { omni?.close() }
           }
         }
-        if (generation == playbackGeneration) closeTrack()
+        if (generation == playbackGeneration) {
+          edgePlayer.close()
+          closeTrack()
+        }
       }
     }
   }
@@ -465,6 +487,7 @@ class ReadAloudController(
     session?.cancel()
     session = null
     androidTts.stop()
+    edgePlayer.close()
     closeTrack()
     paragraphs = emptyList()
     sourceMarkdown = ""
