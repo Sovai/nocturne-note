@@ -3,6 +3,7 @@
   <cloud-backup>
     <!-- Downloaded TTS models are replaceable and should not consume backup quota. -->
     <exclude domain="file" path="tts/" />
+    <exclude domain="sharedpref" path="nocturne_speech.xml" />
   </cloud-backup>
   <device-transfer>
     <exclude domain="file" path="tts/" />
