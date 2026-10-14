@@ -11,7 +11,11 @@ class EdgeTtsClientTest {
   @Test fun khmerVoicesRemainExplicitAndNoKeyIsNeeded() {
     assertEquals(listOf("km-KH-PisethNeural", "km-KH-SreymomNeural"),
       EdgeTtsClient.KHMER_VOICES)
-    assertEquals(64, EdgeTtsClient.signature(1791970000L).length)
+    val token = EdgeTtsClient.signature(1791970000L)
+    assertTrue("Expected CS64-SHA256 Edge v2 signature: $token",
+      Regex("[0-9A-F]{16}-[0-9A-F]{64}").matches(token))
+    assertEquals(81, token.length)
+    assertFalse("Old SHA256-only signature is no longer accepted", token.matches(Regex("[A-F0-9]{64}")))
     assertEquals(EdgeTtsClient.signature(1791970000L),
       EdgeTtsClient.signature(1791970080L))
   }
@@ -41,6 +45,10 @@ class EdgeTtsClientTest {
     val bytes = byteArrayOf((header.size ushr 8).toByte(),
       (header.size and 255).toByte()) + header + sound
     assertArrayEquals(sound, EdgeTtsClient.audioPayload(bytes))
+    // Modern Edge binary frames contain CRLF between header bytes and audio.
+    val withDelimiter = byteArrayOf((header.size ushr 8).toByte(),
+      (header.size and 255).toByte()) + header + byteArrayOf(13, 10) + sound
+    assertArrayEquals(sound, EdgeTtsClient.audioPayload(withDelimiter))
     assertNull(EdgeTtsClient.audioPayload(byteArrayOf(0, 2, 1)))
   }
 }
