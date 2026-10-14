@@ -131,7 +131,7 @@ class ReadAloudController(
   private val resumePrefs = context.applicationContext.getSharedPreferences("nocturne_reader_position", Context.MODE_PRIVATE)
   private val audioCache = SpeechChunkCache(context.applicationContext)
   private val edgeClient = EdgeTtsClient(context.applicationContext)
-  private val edgePlayer = EdgeAudioPlayer()
+  private var edgePlayer: EdgeAudioPlayer? = null
   private val _state = MutableStateFlow(ReadAloudState(speed = preferences.state.value.speed))
   val state = _state.asStateFlow()
   private val _availableAndroidVoices = MutableStateFlow<List<String>>(emptyList())
@@ -179,7 +179,7 @@ class ReadAloudController(
     if (paragraphs.isEmpty() || !_state.value.active) return
     session?.cancel()
     androidTts.stop()
-    edgePlayer.close()
+    edgePlayer?.close()
     closeTrack()
     playFrom(index.coerceIn(0, paragraphs.lastIndex))
   }
@@ -205,7 +205,7 @@ class ReadAloudController(
     if (!current.active) return
     if (current.playing) {
       if (current.engine.startsWith("Edge Read Aloud")) {
-        edgePlayer.pause()
+        edgePlayer?.pause()
       } else if (current.engine == "Android TTS") {
         session?.cancel()
         androidTts.stop()
@@ -213,7 +213,7 @@ class ReadAloudController(
       _state.value = current.copy(playing = false, paused = true)
     } else if (current.paused) {
       if (current.engine.startsWith("Edge Read Aloud")) {
-        edgePlayer.resume()
+        edgePlayer?.resume()
         _state.value = current.copy(playing = true, paused = false)
       } else if (current.engine == "Android TTS") playFrom(current.paragraph)
       else {
@@ -240,6 +240,9 @@ class ReadAloudController(
 
   private fun playFrom(index: Int) {
     session?.cancel()
+    edgePlayer?.close()
+    val currentEdgePlayer = EdgeAudioPlayer()
+    edgePlayer = currentEdgePlayer
     val generation = ++playbackGeneration
     val settings = preferences.state.value
     session = scope.launch {
@@ -332,7 +335,7 @@ class ReadAloudController(
             while (_state.value.paused) delay(35)
             _state.value = _state.value.copy(engine = current.engine, playing = true,
               loading = false, paused = false)
-            edgePlayer.play(current.mp3)
+            currentEdgePlayer.play(current.mp3)
           } else if (current.samples != null) {
             while (_state.value.paused) delay(35)
             _state.value = _state.value.copy(engine = current.engine, playing = true,
@@ -373,8 +376,9 @@ class ReadAloudController(
             runCatching { omni?.close() }
           }
         }
+        currentEdgePlayer.close()
         if (generation == playbackGeneration) {
-          edgePlayer.close()
+          edgePlayer = null
           closeTrack()
         }
       }
