@@ -3,6 +3,8 @@ package com.example.ui.theme
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.Font
+import com.example.R
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
@@ -83,7 +85,13 @@ val Typography = Typography(
   )
 )
 
+private val NotoSerifKhmer = FontFamily(
+  Font(R.font.noto_serif_khmer, FontWeight.Normal),
+  Font(R.font.noto_serif_khmer, FontWeight.Bold)
+)
+
 enum class EditorFontChoice(val label: String, val fontFamily: FontFamily) {
+  NOTO_SERIF_KHMER("Noto Serif Khmer", NotoSerifKhmer),
   SANS("Sans", FontFamily.SansSerif),
   SERIF("Serif", FontFamily.Serif),
   MONO("Mono", FontFamily.Monospace),

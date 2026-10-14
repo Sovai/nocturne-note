@@ -246,6 +246,7 @@ fun SettingsScreen(
                 Box(contentAlignment = Alignment.Center) {
                   Text(
                     text = font.label,
+                    maxLines = 2,
                     style = MaterialTheme.typography.bodyMedium.copy(
                       fontFamily = font.fontFamily,
                       fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
@@ -291,7 +292,7 @@ fun SettingsScreen(
               color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
             ) {
               Text(
-                text = "The quick brown fox jumps over the lazy dog.",
+                text = "សាកល្បងអក្សរខ្មែរ • NocturneNote",
                 style = MaterialTheme.typography.bodyMedium.copy(
                   fontSize = currentFontSize.sp,
                   fontFamily = currentFont.fontFamily

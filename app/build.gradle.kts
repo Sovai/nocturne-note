@@ -12,10 +12,21 @@ android {
     applicationId = "com.aistudio.nocturnenote.nxqz"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    versionCode = 2
+    versionName = "1.0.1"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+  }
+
+  // Public, development-only signing key for reproducible test APK updates.
+  // Never use this identity to sign a production release.
+  signingConfigs {
+    create("development") {
+      storeFile = rootProject.file("config/nocturnenote-dev-debug.jks")
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
+    }
   }
 
   buildTypes {
@@ -25,7 +36,7 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
     debug {
-      signingConfig = signingConfigs.getByName("debug")
+      signingConfig = signingConfigs.getByName("development")
     }
   }
   compileOptions {
