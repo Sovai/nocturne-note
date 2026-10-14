@@ -375,7 +375,16 @@ fun EditorScreen(
             .weight(1f)
             .fillMaxWidth()
         ) {
-          when (editorState.viewMode) {
+          if (readAloudState.active) {
+            ReadAlongView(
+              chunks = readAloudState.chunks,
+              currentIndex = readAloudState.paragraph,
+              fontSize = fontSize,
+              fontFamily = fontChoice.fontFamily,
+              onSeek = { viewModel.seekReadAloudChunk(it) },
+              modifier = Modifier.fillMaxSize()
+            )
+          } else when (editorState.viewMode) {
             EditorViewMode.EDIT -> {
               EditorInputView(
                 value = editorTextFieldValue,
