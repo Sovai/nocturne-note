@@ -40,11 +40,9 @@ class EdgeTtsClient(context: Context) {
     private const val MAX_BYTES = 2 * 1024 * 1024
 
     fun signature(unixSeconds: Long): String {
-      val win = unixSeconds + 11644473600L
-      val rounded = (win - win % 300L) * 10_000_000L
-      return MessageDigest.getInstance("SHA-256")
-        .digest("$rounded$TOKEN".toByteArray(Charsets.US_ASCII))
-        .joinToString("") { "%02X".format(it) }
+      // Edge's v2 handshake now requires CS64-SHA256, not legacy plain SHA256.
+      // Keep upstream algorithm in EdgeV2Signature, covered by regression tests.
+      return EdgeV2Signature.generate(unixSeconds, TOKEN)
     }
 
     fun ssml(text: String, voice: String, speed: Float, pitch: Int): String {
@@ -77,7 +75,12 @@ class EdgeTtsClient(context: Context) {
       if (len < 5 || 2 + len > bytes.size) return null
       val header = bytes.copyOfRange(2, 2 + len).toString(Charsets.US_ASCII)
       if (!Regex("""(?im)^Path:audio\s*$""").containsMatchIn(header)) return null
-      val payload = bytes.copyOfRange(2 + len, bytes.size)
+      // Edge frames have a CRLF delimiter after the counted headers. Do not
+      // include those bytes in the MP3 stream.
+      val dataStart = if (bytes.size >= 4 + len &&
+        bytes[2 + len] == 13.toByte() && bytes[3 + len] == 10.toByte())
+        4 + len else 2 + len
+      val payload = bytes.copyOfRange(dataStart, bytes.size)
       if (payload.isNotEmpty() && !Regex("""(?im)^Content-Type:audio/mpeg\s*$""").containsMatchIn(header)) return null
       return payload
     }
@@ -135,7 +138,7 @@ class EdgeTtsClient(context: Context) {
         .header("Pragma", "no-cache")
         .header("Cache-Control", "no-cache")
         .header("Accept-Language", "en-US,en;q=0.9")
-        .header("Cookie", "muid=" + requestId().uppercase(Locale.US))
+        .header("Cookie", "muid=" + requestId().uppercase(Locale.US) + ";")
         .build()
       val audio = ByteArrayOutputStream()
       val finished = AtomicBoolean(false)
@@ -175,7 +178,10 @@ class EdgeTtsClient(context: Context) {
         }
         override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
           val reason = if (response?.code == 403 || response?.code == 429)
-            "Edge Read Aloud refused the connection (${response.code}). The unofficial endpoint may be restricted."
+            "Microsoft rejected the Edge Read Aloud request (HTTP ${response.code}). " +
+              "Your device connection may be restricted. A third-party website can " +
+              "work through its server even when direct phone requests are blocked. " +
+              "This is an unofficial service, not a guaranteed Azure free API."
           else "Edge Read Aloud connection failed: ${t.message ?: t.javaClass.simpleName}"
           complete(error = IllegalStateException(reason, t))
         }
