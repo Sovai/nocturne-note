@@ -11,7 +11,7 @@ import com.example.tts.ReadAloudController
 import com.example.tts.SpeechSettingsStore
 import com.example.tts.SpeechEngine
 import com.example.tts.SpeechVoice
-import com.example.tts.OmniVoiceClient
+import com.example.tts.SpeechRuntime
 import com.example.ui.editor.MarkdownEditorActions
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -91,38 +91,30 @@ data class EditorSearchState(
 
 class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
-  private val khmerModelManager = KhmerModelManager(application)
-  private val speechSettingsStore = SpeechSettingsStore(application)
-  private val readAloudController = ReadAloudController(application, khmerModelManager, speechSettingsStore)
-  val speechPreferences = speechSettingsStore.state
-  fun setSpeechEngine(engine: SpeechEngine) = speechSettingsStore.engine(engine)
-  fun setSpeechVoice(voice: SpeechVoice) = speechSettingsStore.voice(voice)
-  fun setSpeechServer(url: String) = speechSettingsStore.server(url)
-  fun setSpeechToken(token: String) = speechSettingsStore.token(token)
-  fun testOmniVoice() {
-    speechSettingsStore.status("Connecting…")
-    viewModelScope.launch {
-      val status = runCatching { OmniVoiceClient().health(speechSettingsStore.state.value) }
-        .fold(onSuccess = { if (it) "Connected to OmniVoice" else "Unexpected server response" },
-          onFailure = { "Connection failed: " + (it.message ?: "Unknown error") })
-      speechSettingsStore.status(status)
-    }
-  }
-  val speechModelState = khmerModelManager.state
-  val readAloudState = readAloudController.state
+  init { SpeechRuntime.initialize(application) }
+  private val khmerModelManager get() = SpeechRuntime.models
+  private val speechSettingsStore get() = SpeechRuntime.settings
+  private val readAloudController get() = SpeechRuntime.controller
+  val speechPreferences = SpeechRuntime.settings.state
+  val speechModelState = SpeechRuntime.models.state
+  val readAloudState = SpeechRuntime.controller.state
 
+  fun setSpeechEngine(engine: SpeechEngine) = SpeechRuntime.engine(engine)
+  fun setSpeechVoice(voice: SpeechVoice) = speechSettingsStore.voice(voice)
+  fun setBackgroundReading(enabled: Boolean) = SpeechRuntime.background(enabled)
   fun downloadKhmerModel() { viewModelScope.launch { khmerModelManager.download() } }
-  fun deleteKhmerModel() { readAloudController.stop(); viewModelScope.launch { khmerModelManager.delete() } }
+  fun deleteKhmerModel() { stopReadAloud(); viewModelScope.launch { khmerModelManager.delete() } }
   fun startReadAloud() {
     val current = _editorTextFieldValue.value
     val selection = current.selection
-    val source = if (selection.collapsed || _editorState.value.viewMode != EditorViewMode.EDIT) _editorState.value.content
-      else current.text.substring(selection.min, selection.max)
-    readAloudController.start(source)
+    val source = if (selection.collapsed || _editorState.value.viewMode != EditorViewMode.EDIT)
+      _editorState.value.content else current.text.substring(selection.min, selection.max)
+    SpeechRuntime.start(source, _editorState.value.noteId)
   }
-  fun toggleReadAloud() = readAloudController.toggle()
-  fun stopReadAloud() = readAloudController.stop()
-  fun skipReadAloudParagraph(delta: Int) = readAloudController.skip(delta)
+  fun toggleReadAloud() = SpeechRuntime.toggle()
+  fun stopReadAloud() = SpeechRuntime.stop()
+  fun seekReadAloudChunk(index: Int) = SpeechRuntime.seek(index)
+  fun skipReadAloudParagraph(delta: Int) = SpeechRuntime.skip(delta)
   fun setReadAloudSpeed(speed: Float) = readAloudController.setSpeed(speed)
 
   private val repository: NoteRepository
@@ -925,7 +917,6 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
     }
   }
   override fun onCleared() {
-    readAloudController.close()
     super.onCleared()
   }
 
