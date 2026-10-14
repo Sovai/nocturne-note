@@ -109,6 +109,11 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
   fun setSpeechEngine(engine: SpeechEngine) = SpeechRuntime.engine(engine)
   fun setSpeechVoice(voice: SpeechVoice) = speechSettingsStore.voice(voice)
+  fun setEdgeVoice(voice: String) {
+    speechSettingsStore.edgeVoice(voice)
+    if (readAloudController.state.value.active) readAloudController.skip(0)
+  }
+  fun setEdgePitch(pitch: Int) = speechSettingsStore.edgePitch(pitch)
   fun setMmsTrimSilence(enabled: Boolean) {
     speechSettingsStore.mmsTrimSilence(enabled)
     if (readAloudController.state.value.active) readAloudController.skip(0)
