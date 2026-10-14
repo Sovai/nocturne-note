@@ -12,12 +12,17 @@ import android.os.Message
 import android.os.Messenger
 import android.os.RemoteException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import java.io.DataInputStream
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Client for the separate :omnivoice process. Crash/low-memory kills of native
@@ -26,7 +31,8 @@ import java.util.concurrent.atomic.AtomicInteger
 class OmniVoiceRemoteClient(context: Context) : AutoCloseable {
   private val app = context.applicationContext
   private val nextId = AtomicInteger()
-  private val pending = mutableMapOf<Int, CompletableDeferred<SpeechAudio>>()
+  private val pending = ConcurrentHashMap<Int, CompletableDeferred<SpeechAudio>>()
+  private val readerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private val ready = CompletableDeferred<Messenger>()
   @Volatile private var bound = false
   @Volatile private var closed = false
@@ -37,9 +43,11 @@ class OmniVoiceRemoteClient(context: Context) : AutoCloseable {
       when (message.what) {
         OmniVoiceWorkerService.MSG_AUDIO -> {
           val name = message.data.getString(OmniVoiceWorkerService.KEY_FILE, "")
-          runCatching { readOutput(name) }
-            .onSuccess(deferred::complete)
-            .onFailure(deferred::completeExceptionally)
+          readerScope.launch {
+            runCatching { readOutput(name) }
+              .onSuccess { deferred.complete(it) }
+              .onFailure { deferred.completeExceptionally(it) }
+          }
         }
         OmniVoiceWorkerService.MSG_ERROR -> {
           deferred.completeExceptionally(IllegalStateException(
@@ -131,6 +139,7 @@ class OmniVoiceRemoteClient(context: Context) : AutoCloseable {
     if (closed) return
     closed = true
     failAll("OmniVoice playback stopped")
+    readerScope.cancel()
     if (bound) {
       bound = false
       runCatching { app.unbindService(connection) }
