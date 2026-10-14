@@ -36,7 +36,8 @@ class OmniVoiceOnDeviceEngine(private val root: File, threads: Int = 2) : Closea
   private val options = OrtSession.SessionOptions().apply {
     setIntraOpNumThreads(threads.coerceIn(1, 4))
     setInterOpNumThreads(1)
-    setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+    // Avoid high transient peak memory from whole-graph optimizations on phones.
+    setOptimizationLevel(OrtSession.SessionOptions.OptLevel.BASIC_OPT)
   }
 
   private fun file(path: String): String {
