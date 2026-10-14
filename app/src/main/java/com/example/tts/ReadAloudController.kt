@@ -40,7 +40,9 @@ data class ReadAloudState(
   val totalParagraphs: Int = 0,
   val engine: String = "",
   val speed: Float = 1.0f,
-  val error: String? = null
+  val error: String? = null,
+  val chunks: List<String> = emptyList(),
+  val noteId: Long = 0L
 )
 
 object SpokenMarkdown {
@@ -123,24 +125,46 @@ class ReadAloudController(
   private val androidTts = TextToSpeech(context.applicationContext) { result ->
     if (!ttsReady.isCompleted) ttsReady.complete(result == TextToSpeech.SUCCESS)
   }
-  private val omni = OmniVoiceClient()
+  private val resumePrefs = context.applicationContext.getSharedPreferences("nocturne_reader_position", Context.MODE_PRIVATE)
   private val _state = MutableStateFlow(ReadAloudState(speed = preferences.state.value.speed))
   val state = _state.asStateFlow()
   private var paragraphs = emptyList<String>()
+  private var noteId = 0L
+  private var contentSignature = 0
+  private var stoppedByUser = false
   private var session: Job? = null
   private var playbackGeneration = 0L
   @Volatile private var track: AudioTrack? = null
   private var trackRate = 0
   private var writtenSamples = 0L
 
-  fun start(markdown: String) {
+  fun start(markdown: String, currentNoteId: Long = 0L) {
     stop()
+    noteId = currentNoteId
+    contentSignature = markdown.hashCode()
     paragraphs = SpokenMarkdown.paragraphs(markdown)
     if (paragraphs.isEmpty()) return
+    val saved = if (noteId > 0 && resumePrefs.getInt("hash_$noteId", 0) == contentSignature)
+      resumePrefs.getInt("chunk_$noteId", 0) else 0
+    val start = saved.coerceIn(0, paragraphs.lastIndex)
     _state.value = _state.value.copy(active = true, loading = true,
-      totalParagraphs = paragraphs.size, error = null)
-    playFrom(0)
+      paragraph = start, totalParagraphs = paragraphs.size, error = null,
+      chunks = paragraphs.toList(), noteId = noteId)
+    playFrom(start)
   }
+
+  fun seek(index: Int) {
+    if (paragraphs.isEmpty() || !_state.value.active) return
+    session?.cancel()
+    androidTts.stop()
+    closeTrack()
+    playFrom(index.coerceIn(0, paragraphs.lastIndex))
+  }
+
+  fun pauseForFocus() {
+    if (_state.value.playing) toggle()
+  }
+
 
   fun toggle() {
     val current = _state.value
@@ -160,14 +184,7 @@ class ReadAloudController(
     }
   }
 
-  fun skip(delta: Int) {
-    if (paragraphs.isEmpty()) return
-    val index = (_state.value.paragraph + delta).coerceIn(0, paragraphs.lastIndex)
-    session?.cancel()
-    androidTts.stop()
-    closeTrack()
-    playFrom(index)
-  }
+  fun skip(delta: Int) = seek(_state.value.paragraph + delta)
 
   fun setSpeed(value: Float) {
     val speed = value.coerceIn(0.75f, 1.5f)
@@ -177,10 +194,6 @@ class ReadAloudController(
   }
 
   private data class Generated(val samples: SpeechAudio?, val engine: String)
-  private fun preferOmni(settings: SpeechPreferences): Boolean =
-    settings.engine == SpeechEngine.OMNIVOICE ||
-      (settings.engine == SpeechEngine.AUTO && settings.serverConfigured)
-
   private fun preferMms(settings: SpeechPreferences, text: String): Boolean =
     (settings.engine == SpeechEngine.MMS ||
       settings.engine == SpeechEngine.AUTO) &&
@@ -194,20 +207,11 @@ class ReadAloudController(
       _state.value = _state.value.copy(active = true, loading = true,
         playing = false, paused = false, paragraph = index, error = null)
       var offline: OfflineTts? = null
-      var omniUnavailable = false
       var pending: kotlinx.coroutines.Deferred<Result<Generated>>? = null
 
       suspend fun render(chunk: String): Generated {
-        if (!omniUnavailable && preferOmni(settings)) {
-          try {
-            return Generated(omni.synthesize(chunk, settings), "OmniVoice (PC)")
-          } catch (e: CancellationException) { throw e }
-          catch (e: Exception) {
-            // Explicitly selected OmniVoice must report the error, not silently
-            // replace an intelligible voice with MMS.
-            if (settings.engine == SpeechEngine.OMNIVOICE) throw e
-            omniUnavailable = true
-          }
+        if (settings.engine == SpeechEngine.OMNIVOICE) {
+          error("On-device OmniVoice ONNX is not yet validated. Choose MMS or Android TTS.")
         }
         if (preferMms(settings, chunk)) {
           try {
@@ -241,8 +245,9 @@ class ReadAloudController(
         // MMS used to synthesize only AFTER playback ended, causing long silence.
         for (i in index until paragraphs.size) {
           currentCoroutineContext().ensureActive()
-          _state.value = _state.value.copy(paragraph = i, loading = i == index,
-            error = null)
+          if (noteId > 0) resumePrefs.edit().putInt("hash_$noteId", contentSignature)
+            .putInt("chunk_$noteId", i).apply()
+          _state.value = _state.value.copy(paragraph = i, loading = i == index, error = null)
           val current = if (pending != null) {
             pending.await().getOrThrow().also { pending = null }
           } else withContext(Dispatchers.IO) { render(paragraphs[i]) }
@@ -262,8 +267,9 @@ class ReadAloudController(
             speakAndroid(paragraphs[i], settings.speed)
           }
         }
-        _state.value = _state.value.copy(active = false, playing = false,
-          paused = false, loading = false)
+        if (noteId > 0) resumePrefs.edit().remove("hash_$noteId")
+          .remove("chunk_$noteId").apply()
+        _state.value = ReadAloudState(speed = preferences.state.value.speed)
       } catch (_: CancellationException) {
         // User navigated, paused Android TTS, skipped, or stopped.
       } catch (e: Exception) {
