@@ -89,17 +89,23 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   }
 
   // App Theme & Typography Settings
-  private val _themeMode = MutableStateFlow(AppThemeMode.LIGHT_SOLAR)
+  private val themePreferences = application.getSharedPreferences("nocturnenote_appearance", android.content.Context.MODE_PRIVATE)
+  private val _themeMode = MutableStateFlow(
+    when (themePreferences.getString("theme", AppThemeMode.LIGHT.name)) {
+      "DARK", "DARK_SLATE", "DARK_NOCTURNE" -> AppThemeMode.DARK
+      else -> AppThemeMode.LIGHT
+    }
+  )
   val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
 
   private val fontPreferences = application.getSharedPreferences("nocturnenote_typography", android.content.Context.MODE_PRIVATE)
   private val _fontChoice = MutableStateFlow(
     runCatching {
       EditorFontChoice.valueOf(
-        fontPreferences.getString("editor_font", EditorFontChoice.NOTO_SERIF_KHMER.name)
-          ?: EditorFontChoice.NOTO_SERIF_KHMER.name
+        fontPreferences.getString("editor_font", EditorFontChoice.SANS.name)
+          ?: EditorFontChoice.SANS.name
       )
-    }.getOrDefault(EditorFontChoice.NOTO_SERIF_KHMER)
+    }.getOrDefault(EditorFontChoice.SANS)
   )
   val fontChoice: StateFlow<EditorFontChoice> = _fontChoice.asStateFlow()
 
@@ -199,6 +205,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   }
 
   fun setThemeMode(mode: AppThemeMode) {
+    themePreferences.edit().putString("theme", mode.name).apply()
     _themeMode.value = mode
   }
 

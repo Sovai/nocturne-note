@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.EditorFontChoice
+import com.example.ui.theme.withKhmerFont
 import com.example.ui.viewmodel.NoteViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -142,54 +143,29 @@ fun SettingsScreen(
             )
           }
 
-          // 2x2 Compact Theme Cards
-          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-              ThemeOptionItem(
-                title = "Solar (Light)",
-                subtitle = "Default",
-                previewColor = Color(0xFFFAFAFA),
-                accentColor = Color(0xFF0284C7),
-                isSelected = currentTheme == AppThemeMode.LIGHT_SOLAR,
-                onClick = { viewModel.setThemeMode(AppThemeMode.LIGHT_SOLAR) },
-                modifier = Modifier.weight(1f)
-              )
-              ThemeOptionItem(
-                title = "Nocturne OLED",
-                subtitle = "Pure black",
-                previewColor = Color(0xFF030712),
-                accentColor = Color(0xFF38BDF8),
-                isSelected = currentTheme == AppThemeMode.DARK_NOCTURNE,
-                onClick = { viewModel.setThemeMode(AppThemeMode.DARK_NOCTURNE) },
-                modifier = Modifier.weight(1f)
-              )
-            }
-            Row(
-              modifier = Modifier.fillMaxWidth(),
-              horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-              ThemeOptionItem(
-                title = "Midnight Slate",
-                subtitle = "Dark navy",
-                previewColor = Color(0xFF0B1120),
-                accentColor = Color(0xFF818CF8),
-                isSelected = currentTheme == AppThemeMode.DARK_SLATE,
-                onClick = { viewModel.setThemeMode(AppThemeMode.DARK_SLATE) },
-                modifier = Modifier.weight(1f)
-              )
-              ThemeOptionItem(
-                title = "System Default",
-                subtitle = "Auto adapt",
-                previewColor = Color(0xFF64748B),
-                accentColor = MaterialTheme.colorScheme.primary,
-                isSelected = currentTheme == AppThemeMode.SYSTEM,
-                onClick = { viewModel.setThemeMode(AppThemeMode.SYSTEM) },
-                modifier = Modifier.weight(1f)
-              )
-            }
+          // One clear light/dark choice. Light is the first-launch default.
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+          ) {
+            ThemeOptionItem(
+              title = "Light",
+              subtitle = "Default",
+              previewColor = Color(0xFFF8FAFC),
+              accentColor = Color(0xFF166B7D),
+              isSelected = currentTheme == AppThemeMode.LIGHT,
+              onClick = { viewModel.setThemeMode(AppThemeMode.LIGHT) },
+              modifier = Modifier.weight(1f)
+            )
+            ThemeOptionItem(
+              title = "Dark",
+              subtitle = "Night navy",
+              previewColor = Color(0xFF081421),
+              accentColor = Color(0xFF7BD4DE),
+              isSelected = currentTheme == AppThemeMode.DARK,
+              onClick = { viewModel.setThemeMode(AppThemeMode.DARK) },
+              modifier = Modifier.weight(1f)
+            )
           }
         }
       }
@@ -220,7 +196,16 @@ fun SettingsScreen(
             )
           }
 
-          // Two-row picker keeps all fonts visible on compact devices.
+          Text(
+            text = "English Font",
+            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold)
+          )
+          Text(
+            text = "Khmer always uses Noto Serif Khmer.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+          )
+          // Two-row picker: six English fonts, three per row.
           Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             EditorFontChoice.entries.chunked(3).forEach { rowFonts ->
               Row(
@@ -232,7 +217,7 @@ fun SettingsScreen(
               Surface(
                 modifier = Modifier
                   .weight(1f)
-                  .height(42.dp)
+                  .height(52.dp)
                   .clip(RoundedCornerShape(10.dp))
                   .border(
                     1.dp,
@@ -292,7 +277,7 @@ fun SettingsScreen(
               color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
             ) {
               Text(
-                text = "សាកល្បងអក្សរខ្មែរ • NocturneNote",
+                text = "សាកល្បងអក្សរខ្មែរ • NocturneNote".withKhmerFont(),
                 style = MaterialTheme.typography.bodyMedium.copy(
                   fontSize = currentFontSize.sp,
                   fontFamily = currentFont.fontFamily
