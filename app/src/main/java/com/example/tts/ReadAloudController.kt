@@ -127,6 +127,7 @@ class ReadAloudController(
   val state = _state.asStateFlow()
   private var paragraphs = emptyList<String>()
   private var session: Job? = null
+  private var playbackGeneration = 0L
   @Volatile private var track: AudioTrack? = null
   private var trackRate = 0
   private var writtenSamples = 0L
@@ -186,12 +187,13 @@ class ReadAloudController(
 
   private fun playFrom(index: Int) {
     session?.cancel()
+    val generation = ++playbackGeneration
     val settings = preferences.state.value
     session = scope.launch {
       _state.value = _state.value.copy(active = true, loading = true,
         playing = false, paused = false, paragraph = index, error = null)
       var offline: OfflineTts? = null
-      var pending: kotlinx.coroutines.Deferred<Generated>? = null
+      var pending: kotlinx.coroutines.Deferred<Result<Generated>>? = null
 
       suspend fun render(chunk: String): Generated {
         if (preferOmni(settings)) {
@@ -239,11 +241,11 @@ class ReadAloudController(
           _state.value = _state.value.copy(paragraph = i, loading = i == index,
             error = null)
           val current = if (pending != null) {
-            pending.await().also { pending = null }
+            pending.await().getOrThrow().also { pending = null }
           } else withContext(Dispatchers.IO) { render(paragraphs[i]) }
 
           if (i < paragraphs.lastIndex) {
-            pending = async(Dispatchers.IO) { render(paragraphs[i + 1]) }
+            pending = async(Dispatchers.IO) { runCatching { render(paragraphs[i + 1]) } }
           }
           if (current.samples != null) {
             _state.value = _state.value.copy(engine = current.engine, playing = true,
@@ -266,7 +268,7 @@ class ReadAloudController(
       } finally {
         pending?.cancel()
         withContext(NonCancellable + Dispatchers.IO) { runCatching { offline?.release() } }
-        closeTrack()
+        if (generation == playbackGeneration) closeTrack()
       }
     }
   }
@@ -353,6 +355,7 @@ class ReadAloudController(
   }
 
   fun stop() {
+    playbackGeneration++
     session?.cancel()
     session = null
     androidTts.stop()
