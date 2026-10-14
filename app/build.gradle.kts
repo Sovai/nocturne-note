@@ -80,7 +80,7 @@ dependencies {
   // Sign-In via Credential Manager:
   implementation("com.xdcobra.sherpa:sherpa-onnx:1.13.8-1")
   // Full on-device OmniVoice ONNX inference; weights are downloaded separately.
-  implementation("com.microsoft.onnxruntime:onnxruntime-android:1.26.0")
+  // Sherpa already provides ai.onnxruntime classes and native runtime.
   implementation("ai.djl:api:0.33.0")
   implementation("ai.djl.huggingface:tokenizers:0.33.0")
   implementation("ai.djl.android:tokenizer-native:0.33.0")
