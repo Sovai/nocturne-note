@@ -57,6 +57,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.SpeechModelSettings
+import com.example.ui.components.SpeechReaderSettings
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.EditorFontChoice
 import com.example.ui.theme.withKhmerFont
@@ -77,6 +78,7 @@ fun SettingsScreen(
   val autosaveIntervalMinutes by viewModel.autosaveIntervalMinutes.collectAsState()
   val allNotes by viewModel.allNotes.collectAsState()
   val speechModel by viewModel.speechModelState.collectAsState()
+  val speechSettings by viewModel.speechPreferences.collectAsState()
 
   BackHandler(onBack = onNavigateBack)
 
@@ -392,6 +394,16 @@ fun SettingsScreen(
           }
         }
       }
+
+      SpeechReaderSettings(
+        settings = speechSettings,
+        onEngine = { viewModel.setSpeechEngine(it) },
+        onVoice = { viewModel.setSpeechVoice(it) },
+        onSpeed = { viewModel.setReadAloudSpeed(it) },
+        onAddress = { viewModel.setSpeechServer(it) },
+        onToken = { viewModel.setSpeechToken(it) },
+        onTest = { viewModel.testOmniVoice() }
+      )
 
       SpeechModelSettings(
         state = speechModel,
