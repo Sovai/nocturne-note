@@ -194,10 +194,11 @@ class ReadAloudController(
       _state.value = _state.value.copy(active = true, loading = true,
         playing = false, paused = false, paragraph = index, error = null)
       var offline: OfflineTts? = null
+      var omniUnavailable = false
       var pending: kotlinx.coroutines.Deferred<Result<Generated>>? = null
 
       suspend fun render(chunk: String): Generated {
-        if (preferOmni(settings)) {
+        if (!omniUnavailable && preferOmni(settings)) {
           try {
             return Generated(omni.synthesize(chunk, settings), "OmniVoice (PC)")
           } catch (e: CancellationException) { throw e }
@@ -205,6 +206,7 @@ class ReadAloudController(
             // Explicitly selected OmniVoice must report the error, not silently
             // replace an intelligible voice with MMS.
             if (settings.engine == SpeechEngine.OMNIVOICE) throw e
+            omniUnavailable = true
           }
         }
         if (preferMms(settings, chunk)) {
@@ -249,6 +251,7 @@ class ReadAloudController(
             pending = async(Dispatchers.IO) { runCatching { render(paragraphs[i + 1]) } }
           }
           if (current.samples != null) {
+            while (_state.value.paused) delay(35)
             _state.value = _state.value.copy(engine = current.engine, playing = true,
               loading = false, paused = false)
             playSamples(current.samples)
