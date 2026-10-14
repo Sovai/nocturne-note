@@ -28,7 +28,6 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import java.util.Locale
-import java.text.BreakIterator
 
 data class ReadAloudState(
   val active: Boolean = false,
@@ -57,30 +56,55 @@ object SpokenMarkdown {
       .flatMap(::safeChunks)
   }
 
-  /** Splits on Unicode grapheme boundaries, never inside Khmer combining marks. */
+  /**
+   * Java BreakIterator can split before a Khmer vowel or after COENG, so
+   * choose chunk boundaries with an explicit combining-mark check.
+   * No chunk should start with a dependent sign or half a surrogate pair.
+   */
+  private fun isSafeSpeechBoundary(text: String, index: Int): Boolean {
+    if (index <= 0 || index >= text.length) return true
+    if (Character.isLowSurrogate(text[index])) return false
+    val next = Character.codePointAt(text, index)
+    val previous = Character.codePointBefore(text, index)
+    val category = Character.getType(next)
+    if (category == Character.NON_SPACING_MARK.toInt() ||
+      category == Character.COMBINING_SPACING_MARK.toInt() ||
+      category == Character.ENCLOSING_MARK.toInt()) return false
+    // Khmer COENG binds the following consonant into the preceding syllable.
+    if (previous == 0x17D2 || previous == 0x200D || previous == 0x200C) return false
+    if (next == 0x200D || next == 0x200C) return false
+    return true
+  }
+
   private fun safeChunks(text: String): List<String> {
-    if (text.length <= 260) return listOf(text)
-    val iterator = BreakIterator.getCharacterInstance(Locale.forLanguageTag("km-KH"))
-    iterator.setText(text)
+    val maxLength = 260
+    if (text.length <= maxLength) return listOf(text)
     val result = mutableListOf<String>()
     var start = 0
     while (start < text.length) {
-      var end = iterator.following(start)
-      var boundary = end
-      while (end != BreakIterator.DONE && end - start <= 260) {
-        boundary = end
-        end = iterator.next()
+      var end = (start + maxLength).coerceAtMost(text.length)
+      // Never put a vowel, diacritic, subscript consonant or UTF-16
+      // surrogate continuation at the beginning of the next chunk.
+      while (end > start && !isSafeSpeechBoundary(text, end)) end--
+      // A single unusually long combining sequence may exceed the limit;
+      // keeping the syllable intact takes priority over chunk length.
+      if (end == start) {
+        end = start + 1
+        while (end < text.length && !isSafeSpeechBoundary(text, end)) end++
       }
-      if (end == BreakIterator.DONE) boundary = text.length
-      if (boundary <= start) break
-      val slice = text.substring(start, boundary)
-      val preferred = listOf(slice.lastIndexOf('។'), slice.lastIndexOf('៕'),
-        slice.lastIndexOf(' ')).maxOrNull() ?: -1
-      val next = if (preferred >= 130) start + preferred + 1 else boundary
-      result.add(text.substring(start, next).trim())
-      start = next
+      if (end < text.length) {
+        // Prefer punctuation or a word gap in the latter half of a chunk.
+        var preferred = -1
+        for (i in (start + maxLength / 2).coerceAtMost(end) until end) {
+          if ((text[i] == ' ' || text[i] == '។' || text[i] == '៕') &&
+            isSafeSpeechBoundary(text, i + 1)) preferred = i + 1
+        }
+        if (preferred > start) end = preferred
+      }
+      text.substring(start, end).trim().takeIf { it.isNotEmpty() }?.let(result::add)
+      start = end
     }
-    return result.filter { it.isNotBlank() }
+    return result
   }
 
   fun containsKhmer(text: String): Boolean = text.any { it in '\u1780'..'\u17FF' }
