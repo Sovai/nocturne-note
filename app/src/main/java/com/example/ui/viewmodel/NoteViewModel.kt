@@ -6,6 +6,8 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
+import com.example.tts.KhmerModelManager
+import com.example.tts.ReadAloudController
 import com.example.ui.editor.MarkdownEditorActions
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -84,6 +86,25 @@ data class EditorSearchState(
 )
 
 class NoteViewModel(application: Application) : AndroidViewModel(application) {
+
+  private val khmerModelManager = KhmerModelManager(application)
+  private val readAloudController = ReadAloudController(application, khmerModelManager)
+  val speechModelState = khmerModelManager.state
+  val readAloudState = readAloudController.state
+
+  fun downloadKhmerModel() { viewModelScope.launch { khmerModelManager.download() } }
+  fun deleteKhmerModel() { readAloudController.stop(); viewModelScope.launch { khmerModelManager.delete() } }
+  fun startReadAloud() {
+    val current = _editorTextFieldValue.value
+    val selection = current.selection
+    val source = if (selection.collapsed) _editorState.value.content
+      else current.text.substring(selection.min, selection.max)
+    readAloudController.start(source)
+  }
+  fun toggleReadAloud() = readAloudController.toggle()
+  fun stopReadAloud() = readAloudController.stop()
+  fun skipReadAloudParagraph(delta: Int) = readAloudController.skip(delta)
+  fun setReadAloudSpeed(speed: Float) = readAloudController.setSpeed(speed)
 
   private val repository: NoteRepository
   init {
@@ -265,6 +286,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   // --- Note Management ---
 
   fun openNote(note: NoteEntity) {
+    stopReadAloud()
     editorGeneration++
     debouncedAutosaveJob?.cancel()
     undoStack.clear()
@@ -298,6 +320,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   }
 
   fun createNewNote(initialTitle: String = "", initialContent: String = "", formatHint: String = "MD") {
+    stopReadAloud()
     editorGeneration++
     debouncedAutosaveJob?.cancel()
     undoStack.clear()
@@ -882,4 +905,9 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
       }
     }
   }
+  override fun onCleared() {
+    readAloudController.close()
+    super.onCleared()
+  }
+
 }
