@@ -24,7 +24,7 @@ jobs:
         with:
           gradle-version: '9.3.1'
       - name: Build and test
-        run: gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest
+        run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest
       - name: Verify signing certificate
         run: |
           apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
