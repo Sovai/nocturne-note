@@ -122,6 +122,7 @@ class ReadAloudController(
   private val omniModels: OmniVoiceModelManager,
   private val preferences: SpeechSettingsStore
 ) {
+  private val appContext = context.applicationContext
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
   private val ttsReady = CompletableDeferred<Boolean>()
   private val androidTts = TextToSpeech(context.applicationContext) { result ->
@@ -248,7 +249,7 @@ class ReadAloudController(
           if (android.os.Build.VERSION.SDK_INT < 26) {
             error("OmniVoice requires Android 8 or newer.")
           }
-          if (omni == null) omni = OmniVoiceRemoteClient(context.applicationContext)
+          if (omni == null) omni = OmniVoiceRemoteClient(appContext)
           val engine = requireNotNull(omni)
           val key = audioCache.key(chunk, settings.speed, false, "omnivoice-onnx-int4-v1")
           withContext(Dispatchers.IO) { audioCache.get(key) }?.let {
