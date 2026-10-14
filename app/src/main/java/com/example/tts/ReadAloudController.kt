@@ -288,8 +288,8 @@ class ReadAloudController(
             _state.value = _state.value.copy(engine = current.engine, playing = true,
               loading = false, paused = false)
             playSamples(current.samples)
-            if (i < paragraphs.lastIndex && settings.mmsPauseMs > 0) {
-              var remaining = settings.mmsPauseMs.toLong()
+            if (i < paragraphs.lastIndex && preferences.state.value.mmsPauseMs > 0) {
+              var remaining = preferences.state.value.mmsPauseMs.toLong()
               while (remaining > 0) {
                 currentCoroutineContext().ensureActive()
                 if (_state.value.paused) { delay(35); continue }
