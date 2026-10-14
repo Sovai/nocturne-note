@@ -99,6 +99,8 @@ fun SpeechPlayerBar(
                 else preferences.androidVoiceName.take(12))
             }
             DropdownMenu(expanded = voiceMenu, onDismissRequest = { voiceMenu = false }) {
+              DropdownMenuItem(text = { Text("System default") },
+                onClick = { onAndroidVoice(""); voiceMenu = false })
               androidVoices.forEach { name ->
                 DropdownMenuItem(text = { Text(name) },
                   onClick = { onAndroidVoice(name); voiceMenu = false })
