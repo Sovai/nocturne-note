@@ -25,15 +25,15 @@ The voice is the Khmer Meta MMS model converted to ONNX by [willwade](https://hu
 
 - Android TTS: free fallback, using installed Khmer/English voices.
 - MMS Khmer: optional ~100 MB ONNX model, available for download/delete in Settings; known limitations in Khmer intelligibility.
-- OmniVoice ONNX: phone-only experimental candidate. **Model catalog/downloader is implemented, but full Android inference is not yet validated, and OmniVoice is disabled for playback until then.** No PC server and no paid API are used.
+- OmniVoice ONNX: Android beta supports **fully offline inference** from downloaded ONNX model files: Qwen2 tokenization, 32-step audio-code unmasking, Higgs audio decoding, local PCM playback, and per-chunk generated-audio cache. No PC and no paid API. Memory usage, audio quality, and speed remain unverified on the physical Pixel 8 Pro.
 - Model registry: https://github.com/Sovai/-nocturne-note-models
 - Both model releases are now published with SHA-256-verified assets: `mms-khm-v1` (~109 MiB) and `omnivoice-onnx-int4-v1` (~735 MiB). The app prefers verified GitHub Release assets for MMS, using upstream only when the catalog cannot be reached. The model registry is currently named `-nocturne-note-models`; both the old and corrected URLs are accepted to support renaming.
 
-#### Why mobile OmniVoice is not marked playable yet
+#### OmniVoice Android beta limitations
 
-The ONNX-Community conversion is a Qwen3-based 32-step unmasking system with several ONNX subgraphs and the Higgs audio codec. ONNX Runtime can execute the graphs, but running an isolated ONNX session is **not** an end-to-end Khmer speech engine. A mobile port still requires Qwen tokenizer logic, iterative 8-codebook decoding, accurate codec synthesis, audio buffers, lifecycle and cancellation, and device profiling.
+The app now runs the published Qwen3-based 32-step unmasking process and Higgs decoding locally through Android ONNX Runtime with a Qwen tokenizer. Only default voice/no reference recording is implemented. Voice cloning/design needs the separate acoustic/semantic/quantizer-encoder path. The model can be enabled in Settings after downloading and validating all assets; use a short Khmer passage initially.
 
-The published INT4 and FP16 Higgs assets total approximately 735 MiB, not counting runtime overhead. Physical Android testing of RAM, synthesis speed and quality must pass before enabling the OmniVoice model in the player.
+The published INT4 and FP16 Higgs assets total approximately 735 MiB, not counting runtime overhead. Physical Android testing of RAM, synthesis speed and quality is required before declaring this production-ready. The app exposes it as beta, not as a quality-verified replacement for MMS.
 
 Reference: https://huggingface.co/onnx-community/OmniVoice-Onnx
 
