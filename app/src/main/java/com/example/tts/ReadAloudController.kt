@@ -427,6 +427,13 @@ class ReadAloudController(
           }
         }
     }
+    if (_state.value.engine.startsWith("OmniVoice")) {
+      runCatching {
+        output.playbackParams = android.media.PlaybackParams()
+          .setSpeed(preferences.state.value.speed)
+          .setPitch(1f)
+      }
+    }
     var offset = 0
     while (offset < audio.samples.size) {
       currentCoroutineContext().ensureActive()
