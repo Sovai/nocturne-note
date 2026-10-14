@@ -130,6 +130,19 @@ class ReadAloudController(
   private val resumePrefs = context.applicationContext.getSharedPreferences("nocturne_reader_position", Context.MODE_PRIVATE)
   private val _state = MutableStateFlow(ReadAloudState(speed = preferences.state.value.speed))
   val state = _state.asStateFlow()
+  private val _availableAndroidVoices = MutableStateFlow<List<String>>(emptyList())
+  val availableAndroidVoices = _availableAndroidVoices.asStateFlow()
+
+  init {
+    scope.launch {
+      if (ttsReady.await()) {
+        _availableAndroidVoices.value = androidTts.voices.orEmpty()
+          .filter { it.locale.language == "km" || it.locale.language == "en" }
+          .sortedWith(compareBy({ it.locale.language != "km" }, { it.name }))
+          .map { it.name }
+      }
+    }
+  }
   private var paragraphs = emptyList<String>()
   private var noteId = 0L
   private var contentSignature = 0
@@ -293,7 +306,13 @@ class ReadAloudController(
     if (!ttsReady.await()) error("Android speech engine is unavailable")
     val locale = if (SpokenMarkdown.containsKhmer(text))
       Locale.forLanguageTag("km-KH") else Locale.ENGLISH
-    val availability = androidTts.setLanguage(locale)
+    val preferredVoice = preferences.state.value.androidVoiceName
+    val preferred = androidTts.voices?.firstOrNull {
+      it.name == preferredVoice && it.locale.language == locale.language
+    }
+    if (preferred != null) androidTts.voice = preferred
+    val availability = if (preferred == null) androidTts.setLanguage(locale)
+      else TextToSpeech.LANG_AVAILABLE
     if (availability == TextToSpeech.LANG_MISSING_DATA ||
         availability == TextToSpeech.LANG_NOT_SUPPORTED) {
       error("No Android voice installed for " + locale.displayLanguage)
