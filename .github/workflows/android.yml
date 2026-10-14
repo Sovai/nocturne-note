@@ -49,12 +49,13 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "package: name='com.sovai.nocturnenote'"
 
       # Build the release variant only on a manual workflow run or a
-      # specifically marked main-branch merge, avoiding duplicate CI builds.
+      # specifically marked main-branch merge, or an internal release PR for verification.
+      # No extra workflow is triggered for pushes.
       - name: Build installable internal release APK
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]'))
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]')) || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'build/internal-release-apk-'))
         run: gradle --no-daemon -PnocturneInternalRelease=true :app:assembleRelease
       - name: Verify internal release signing and version
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]'))
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]')) || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'build/internal-release-apk-'))
         run: |
           apk="app/build/outputs/apk/release/app-release.apk"
           test -s "$apk"
