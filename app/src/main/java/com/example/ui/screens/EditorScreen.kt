@@ -449,7 +449,10 @@ fun EditorScreen(
             onToggle = { viewModel.toggleReadAloud() },
             onStop = { viewModel.stopReadAloud() },
             onSkip = { viewModel.skipReadAloudParagraph(it) },
-            onSpeed = { viewModel.setReadAloudSpeed(it) }
+            onSpeed = { viewModel.setReadAloudSpeed(it) },
+            onMmsTrim = { viewModel.setMmsTrimSilence(it) },
+            onMmsPause = { viewModel.setMmsPauseMs(it) },
+            onMmsThreads = { viewModel.setMmsThreads(it) }
           )
         }
 
