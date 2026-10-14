@@ -25,6 +25,9 @@ jobs:
           gradle-version: '9.3.1'
       - name: Build and test
         run: gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest
+      - name: Verify signing certificate
+        run: |
+          keytool -list -keystore config/nocturnenote-dev-debug.jks -storepass android -alias androiddebugkey -v | grep "SHA256:"
       - name: Upload debug APK
         if: success()
         uses: actions/upload-artifact@v4

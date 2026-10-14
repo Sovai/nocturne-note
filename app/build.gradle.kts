@@ -18,6 +18,17 @@ android {
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
 
+  // Public, development-only signing key for reproducible test APK updates.
+  // Never use this identity to sign a production release.
+  signingConfigs {
+    create("development") {
+      storeFile = rootProject.file("config/nocturnenote-dev-debug.jks")
+      storePassword = "android"
+      keyAlias = "androiddebugkey"
+      keyPassword = "android"
+    }
+  }
+
   buildTypes {
     release {
       isCrunchPngs = false
@@ -25,7 +36,7 @@ android {
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
     debug {
-      signingConfig = signingConfigs.getByName("debug")
+      signingConfig = signingConfigs.getByName("development")
     }
   }
   compileOptions {
