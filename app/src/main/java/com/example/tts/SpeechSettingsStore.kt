@@ -8,6 +8,7 @@ enum class SpeechEngine(val label: String) {
   AUTO("Automatic"),
   OMNIVOICE("OmniVoice ONNX · on-device"),
   MMS("Khmer MMS · offline"),
+  EDGE("Edge Read Aloud · online"),
   ANDROID("Android TTS")
 }
 
@@ -27,7 +28,9 @@ data class SpeechPreferences(
   val androidVoiceName: String = "",
   val mmsTrimSilence: Boolean = true,
   val mmsPauseMs: Int = 0,
-  val mmsThreads: Int = 2
+  val mmsThreads: Int = 2,
+  val edgeVoice: String = "km-KH-PisethNeural",
+  val edgePitchHz: Int = 0
 )
 
 /** Persist only user preferences, never text or reference audio. */
@@ -44,7 +47,9 @@ class SpeechSettingsStore(context: Context) {
       androidVoiceName = prefs.getString("android_voice", "") ?: "",
       mmsTrimSilence = prefs.getBoolean("mms_trim_silence", true),
       mmsPauseMs = prefs.getInt("mms_pause_ms", 0).coerceIn(0, 600),
-      mmsThreads = prefs.getInt("mms_threads", 2).coerceIn(1, 4)
+      mmsThreads = prefs.getInt("mms_threads", 2).coerceIn(1, 4),
+      edgeVoice = prefs.getString("edge_voice", "km-KH-PisethNeural")?.takeIf { it in EdgeTtsClient.KHMER_VOICES } ?: "km-KH-PisethNeural",
+      edgePitchHz = prefs.getInt("edge_pitch_hz", 0).coerceIn(-40,40)
     )
   )
   val state = _state.asStateFlow()
@@ -57,7 +62,9 @@ class SpeechSettingsStore(context: Context) {
       .putString("android_voice", value.androidVoiceName)
       .putBoolean("mms_trim_silence", value.mmsTrimSilence)
       .putInt("mms_pause_ms", value.mmsPauseMs)
-      .putInt("mms_threads", value.mmsThreads).apply()
+      .putInt("mms_threads", value.mmsThreads)
+      .putString("edge_voice", value.edgeVoice)
+      .putInt("edge_pitch_hz", value.edgePitchHz).apply()
     _state.value = value
   }
 
@@ -69,4 +76,6 @@ class SpeechSettingsStore(context: Context) {
   fun mmsTrimSilence(value: Boolean) = update(_state.value.copy(mmsTrimSilence = value))
   fun mmsPauseMs(value: Int) = update(_state.value.copy(mmsPauseMs = value.coerceIn(0, 600)))
   fun mmsThreads(value: Int) = update(_state.value.copy(mmsThreads = value.coerceIn(1, 4)))
+  fun edgeVoice(value: String) { if (value in EdgeTtsClient.KHMER_VOICES) update(_state.value.copy(edgeVoice = value)) }
+  fun edgePitch(value: Int) = update(_state.value.copy(edgePitchHz = value.coerceIn(-40,40)))
 }
