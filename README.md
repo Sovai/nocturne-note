@@ -28,6 +28,18 @@ GitHub Actions runs on PRs and `main` pushes and publishes a debug APK artifact 
 
 **Signing:** CI debug APKs use the committed, development-only signing identity for reproducible test updates. Never use this publicly known key for production or commit a production signing key.
 
+### Installable internal release APK
+
+To build a release-mode APK that updates current development-signed installations, run GitHub Actions → Android CI → **Run workflow** on `main`, or merge a commit whose message contains `[internal-release]`. The workflow verifies signing and the app ID/version and attaches `Nocturne-Note-v1.0.5-internal-release` to the workflow run (30-day retention).
+
+Locally (with Gradle 9.3.1 and Android SDK), run:
+
+```bash
+gradle -PnocturneInternalRelease=true :app:assembleRelease
+```
+
+The installable file is `app/build/outputs/apk/release/app-release.apk` with version `1.0.5` (code `6`), package `com.sovai.nocturnenote`, release build configuration, and the existing **development signing certificate**. This is for internal testing **only**, not a production-signed or Play Store release. Do not distribute it as a production release. Normal `assembleRelease` without this property does not use that test signing identity.
+
 ## Privacy
 
 No account or internet connection is required. Unused Firebase / Gemini / Google Services integrations from the AI Studio starter project have been removed from the build.
