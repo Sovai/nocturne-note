@@ -402,6 +402,7 @@ fun SettingsScreen(
       SpeechReaderSettings(
         settings = speechSettings,
         androidVoices = androidVoices,
+        omniInstalled = omniModel.installed && android.os.Build.VERSION.SDK_INT >= 26,
         onAndroidVoice = { viewModel.setAndroidVoice(it) },
         onEngine = { viewModel.setSpeechEngine(it) },
         onVoice = { viewModel.setSpeechVoice(it) },
