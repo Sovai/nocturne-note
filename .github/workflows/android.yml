@@ -2,7 +2,7 @@ name: Android CI
 on:
   push:
     branches: [main]
-  # Avoid running an expensive emulator on every PR synchronize/commit.
+  # PR commits should not create CI runs; emulator tests are manual-only.
   # Open/reopen/ready-for-review runs once; further builds are manual.
   pull_request:
     branches: [main]
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       run_emulator:
-        description: 'Run emulator tests (slow)'
+        description: 'Run Android emulator tests (slow; default off)'
         required: false
         type: boolean
         default: false
@@ -46,11 +46,11 @@ jobs:
       - name: Build and test
         run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest
       - name: Allow Android emulator acceleration
-        if: (github.event_name == 'pull_request' && github.event.action != 'labeled') || (github.event_name == 'workflow_dispatch' && inputs.run_emulator == true)
+        if: github.event_name == 'workflow_dispatch' && inputs.run_emulator == true
         run: |
           if [ -e /dev/kvm ]; then sudo chmod a+rw /dev/kvm; fi
-      - name: Verify Zen mode on Android emulator
-        if: (github.event_name == 'pull_request' && github.event.action != 'labeled') || (github.event_name == 'workflow_dispatch' && inputs.run_emulator == true)
+      - name: Run Android emulator tests (manual opt-in)
+        if: github.event_name == 'workflow_dispatch' && inputs.run_emulator == true
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
