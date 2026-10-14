@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.ui.components.SpeechModelSettings
 import com.example.ui.components.SpeechReaderSettings
+import com.example.ui.components.MmsPlaybackSettings
 import com.example.ui.components.OmniVoiceModelSettings
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.EditorFontChoice
@@ -413,6 +414,13 @@ fun SettingsScreen(
         onRefresh = { viewModel.refreshOmniVoiceModels() },
         onDownload = { viewModel.downloadOmniVoiceModels() },
         onDelete = { viewModel.deleteOmniVoiceModels() }
+      )
+
+      MmsPlaybackSettings(
+        preferences = speechSettings,
+        onTrim = { viewModel.setMmsTrimSilence(it) },
+        onPause = { viewModel.setMmsPauseMs(it) },
+        onThreads = { viewModel.setMmsThreads(it) }
       )
 
       SpeechModelSettings(
