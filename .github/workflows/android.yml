@@ -27,7 +27,9 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug :app:testDebugUnitTest
       - name: Verify signing certificate
         run: |
-          keytool -list -keystore config/nocturnenote-dev-debug.jks -storepass android -alias androiddebugkey -v | grep "SHA256:"
+          apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
+          "$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk
+          "$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk | grep -F "64:46:AC:0D:78:7A:95:56:85:C8:C1:21:C5:96:48:94:2C:32:22:0D:9F:E6:63:4D:ED:0B:D3:A0:AE:D2:63:70"
       - name: Upload debug APK
         if: success()
         uses: actions/upload-artifact@v4
