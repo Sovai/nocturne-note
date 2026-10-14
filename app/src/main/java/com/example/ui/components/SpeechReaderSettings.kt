@@ -24,8 +24,10 @@ import com.example.tts.SpeechVoice
 @Composable
 fun SpeechReaderSettings(
   settings: SpeechPreferences,
+  androidVoices: List<String>,
   onEngine: (SpeechEngine) -> Unit,
   onVoice: (SpeechVoice) -> Unit,
+  onAndroidVoice: (String) -> Unit,
   onSpeed: (Float) -> Unit,
   onBackground: (Boolean) -> Unit
 ) {
@@ -53,9 +55,27 @@ fun SpeechReaderSettings(
       Slider(value = settings.speed, onValueChange = onSpeed,
         valueRange = 0.75f..1.5f, modifier = Modifier.testTag("settings_speech_speed"))
       Text("Voice", style = MaterialTheme.typography.bodyMedium)
-      Text("MMS has a single fixed voice. OmniVoice voice selection will activate when the mobile engine is ready.",
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant)
+      when (settings.engine) {
+        SpeechEngine.MMS -> Text("MMS has one fixed voice.",
+          style = MaterialTheme.typography.bodySmall)
+        SpeechEngine.OMNIVOICE -> Text("Voice design is pending validated mobile inference.",
+          style = MaterialTheme.typography.bodySmall)
+        else -> {
+          Text("Android fallback voice",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+          if (androidVoices.isEmpty()) {
+            Text("No installed Khmer/English system voices detected.",
+              style = MaterialTheme.typography.bodySmall)
+          } else {
+            androidVoices.forEach { name ->
+              FilterChip(selected = settings.androidVoiceName == name,
+                onClick = { onAndroidVoice(name) },
+                label = { Text(name, maxLines = 1) })
+            }
+          }
+        }
+      }
       Row(modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween) {
         Column(modifier = Modifier.weight(1f)) {
