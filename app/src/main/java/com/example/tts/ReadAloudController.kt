@@ -15,6 +15,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -149,7 +150,7 @@ class ReadAloudController(
               throw error
             } catch (error: Throwable) {
               currentCoroutineContext().ensureActive()
-              withContext(Dispatchers.IO) { runCatching { offline?.release() } }
+              withContext(NonCancellable + Dispatchers.IO) { runCatching { offline?.release() } }
               offline = null
               speakAndroid(text, speed)
             }
