@@ -40,7 +40,7 @@ fun OmniVoiceModelSettings(
       verticalArrangement = Arrangement.spacedBy(10.dp)) {
       Text("OmniVoice ONNX · On-device",
         style = MaterialTheme.typography.titleMedium)
-      Text("Experimental model management. Downloading a converted model does not enable speech until the full Android tokenizer, iterative decoder and audio-codec pipeline is verified.",
+      Text("Experimental on-device speech engine: Android ONNX generation and Higgs decoding are included. Large model loading may be slow or cause memory pressure. Test short Khmer text first.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
       Text(
@@ -48,7 +48,7 @@ fun OmniVoiceModelSettings(
           state.downloading -> "Downloading ${state.progressPercent}%"
           state.installed -> "Model files verified (${state.totalBytes / (1024*1024)} MB)"
           state.published -> "Verified model release available (${state.totalBytes / (1024*1024)} MB)"
-          else -> "No verified Android model release published yet"
+          else -> "No published OmniVoice ONNX model files found"
         },
         style = MaterialTheme.typography.bodyMedium)
       if (state.downloading) LinearProgressIndicator(
