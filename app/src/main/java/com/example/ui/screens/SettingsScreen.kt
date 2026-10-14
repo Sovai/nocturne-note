@@ -56,6 +56,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.ui.components.SpeechModelSettings
 import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.EditorFontChoice
 import com.example.ui.theme.withKhmerFont
@@ -75,6 +76,7 @@ fun SettingsScreen(
   val isAutosaveEnabled by viewModel.isAutosaveEnabled.collectAsState()
   val autosaveIntervalMinutes by viewModel.autosaveIntervalMinutes.collectAsState()
   val allNotes by viewModel.allNotes.collectAsState()
+  val speechModel by viewModel.speechModelState.collectAsState()
 
   BackHandler(onBack = onNavigateBack)
 
@@ -391,6 +393,12 @@ fun SettingsScreen(
         }
       }
 
+      SpeechModelSettings(
+        state = speechModel,
+        onDownload = { viewModel.downloadKhmerModel() },
+        onDelete = { viewModel.deleteKhmerModel() }
+      )
+
       // 4. Privacy & Offline Information
       Card(
         modifier = Modifier.fillMaxWidth(),
@@ -418,7 +426,7 @@ fun SettingsScreen(
           }
 
           Text(
-            text = "NocturneNote is 100% offline. All ${allNotes.size} documents, version snapshots, and exported files remain entirely on this device.",
+            text = "Documents stay on-device. Optional Khmer voice downloads use the internet once. All ${allNotes.size} documents, version snapshots, and exported files remain entirely on this device.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
           )
