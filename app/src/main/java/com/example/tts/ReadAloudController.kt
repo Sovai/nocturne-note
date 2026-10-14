@@ -31,6 +31,8 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import java.util.Locale
 
+data class SpeechAudio(val samples: FloatArray, val sampleRate: Int)
+
 data class ReadAloudState(
   val active: Boolean = false,
   val playing: Boolean = false,
