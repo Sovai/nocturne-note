@@ -32,6 +32,7 @@ import com.example.tts.SpeechVoice
 fun SpeechReaderSettings(
   settings: SpeechPreferences,
   androidVoices: List<String>,
+  omniInstalled: Boolean,
   onEngine: (SpeechEngine) -> Unit,
   onVoice: (SpeechVoice) -> Unit,
   onAndroidVoice: (String) -> Unit,
@@ -49,14 +50,14 @@ fun SpeechReaderSettings(
         fontWeight = FontWeight.SemiBold))
       Text("Speech engine", style = MaterialTheme.typography.bodyMedium)
       SpeechEngine.entries.forEach { engine ->
-        val available = engine != SpeechEngine.OMNIVOICE
+        val available = engine != SpeechEngine.OMNIVOICE || omniInstalled
         FilterChip(selected = settings.engine == engine,
           onClick = { onEngine(engine) },
           enabled = available,
-          label = { Text(engine.label + if (available) "" else " · experimental") },
+          label = { Text(engine.label + if (engine == SpeechEngine.OMNIVOICE) " · beta" else "") },
           modifier = Modifier.testTag("settings_engine_" + engine.name.lowercase()))
       }
-      Text("OmniVoice ONNX is an on-device-only research backend. It cannot be selected until full Android inference is validated. No PC connection is required.",
+      Text("OmniVoice ONNX now attempts local Android inference. Beta: large RAM usage and long initial generation are possible. Start with short Khmer text.",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant)
       Text("Speed · " + String.format("%.2f", settings.speed) + "×")
@@ -66,7 +67,7 @@ fun SpeechReaderSettings(
       when (settings.engine) {
         SpeechEngine.MMS -> Text("MMS has one fixed voice.",
           style = MaterialTheme.typography.bodySmall)
-        SpeechEngine.OMNIVOICE -> Text("Voice design is pending validated mobile inference.",
+        SpeechEngine.OMNIVOICE -> Text("Automatic voice is available. Custom voice design/cloning is not yet enabled.",
           style = MaterialTheme.typography.bodySmall)
         else -> {
           Text("Android fallback voice",
