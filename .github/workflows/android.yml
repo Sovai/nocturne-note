@@ -46,7 +46,7 @@ jobs:
       - name: Build and test
         run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest
       - name: Allow Android emulator acceleration
-        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_emulator == true)
+        if: (github.event_name == 'pull_request' && github.event.action != 'labeled') || (github.event_name == 'workflow_dispatch' && inputs.run_emulator == true)
         run: |
           if [ -e /dev/kvm ]; then sudo chmod a+rw /dev/kvm; fi
       - name: Verify Zen mode on Android emulator
