@@ -18,6 +18,11 @@ class SpokenMarkdownTest {
     assertEquals(listOf("Hello world"), paragraphs)
   }
 
+  @Test fun combinesWrappedNarrationLinesInsteadOfGeneratingPerLine() {
+    val parts = SpokenMarkdown.paragraphs("ជំរាបសួរ\nអ្នកទាំងអស់គ្នា\n\nនេះជារឿងថ្មី")
+    assertEquals(listOf("ជំរាបសួរ អ្នកទាំងអស់គ្នា", "នេះជារឿងថ្មី"), parts)
+  }
+
   @Test fun detectsKhmerText() {
     assertTrue(SpokenMarkdown.containsKhmer("សួស្តី"))
     assertFalse(SpokenMarkdown.containsKhmer("Hello"))
