@@ -251,8 +251,13 @@ class ReadAloudController(
           if (omni == null) omni = OmniVoiceOnDeviceEngine(omniModels.localModelDirectory,
             threads = settings.mmsThreads)
           val engine = requireNotNull(omni)
+          val key = audioCache.key(chunk, settings.speed, false, "omnivoice-onnx-int4-v1")
+          withContext(Dispatchers.IO) { audioCache.get(key) }?.let {
+            return Generated(it, "OmniVoice ONNX · cached")
+          }
           val audio = withContext(Dispatchers.Default) { engine.synthesize(chunk) }
           currentCoroutineContext().ensureActive()
+          withContext(Dispatchers.IO) { runCatching { audioCache.put(key, audio) } }
           return Generated(audio, "OmniVoice ONNX · local")
         }
         if (preferMms(settings, chunk)) {
@@ -413,6 +418,13 @@ class ReadAloudController(
           trackRate = audio.sampleRate
           writtenSamples = 0
           it.play()
+          if (_state.value.engine.startsWith("OmniVoice")) {
+            runCatching {
+              it.playbackParams = android.media.PlaybackParams()
+                .setSpeed(preferences.state.value.speed)
+                .setPitch(1f)
+            }
+          }
         }
     }
     var offset = 0
