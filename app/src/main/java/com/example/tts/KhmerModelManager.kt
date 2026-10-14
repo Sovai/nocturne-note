@@ -79,7 +79,7 @@ class KhmerModelManager(context: Context) {
     fun asset(name: String): Asset {
       val source = files.getJSONObject(name)
       val link = source.getString("url")
-      require(link.startsWith("https://github.com/Sovai/-nocturne-note-models/releases/download/"))
+      require(link.startsWith("https://github.com/Sovai/-nocturne-note-models/releases/download/") || link.startsWith("https://github.com/Sovai/nocturne-note-models/releases/download/"))
       val hash = source.getString("sha256")
       require(hash.matches(Regex("[a-fA-F0-9]{64}")))
       return Asset(link, hash, source.getLong("size"))
