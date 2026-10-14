@@ -145,6 +145,7 @@ class ReadAloudController(
     }
   }
   private var paragraphs = emptyList<String>()
+  private var sourceMarkdown = ""
   private var noteId = 0L
   private var contentSignature = 0
   private var stoppedByUser = false
@@ -158,6 +159,7 @@ class ReadAloudController(
     stop()
     noteId = currentNoteId
     contentSignature = markdown.hashCode()
+    sourceMarkdown = markdown
     paragraphs = SpokenMarkdown.paragraphs(markdown,
       if (preferences.state.value.engine == SpeechEngine.OMNIVOICE) 80 else 260)
     if (paragraphs.isEmpty()) return
@@ -176,6 +178,17 @@ class ReadAloudController(
     androidTts.stop()
     closeTrack()
     playFrom(index.coerceIn(0, paragraphs.lastIndex))
+  }
+
+  fun restartForNewEngine() {
+    if (!_state.value.active) return
+    val old = _state.value
+    val original = sourceMarkdown
+    val currentNoteId = noteId
+    val fraction = old.paragraph.toDouble() / maxOf(1, old.totalParagraphs - 1)
+    stop()
+    start(original, currentNoteId)
+    if (paragraphs.size > 1) seek((fraction * (paragraphs.size - 1)).toInt())
   }
 
   fun pauseForFocus() {
@@ -435,6 +448,7 @@ class ReadAloudController(
     androidTts.stop()
     closeTrack()
     paragraphs = emptyList()
+    sourceMarkdown = ""
     _state.value = ReadAloudState(speed = preferences.state.value.speed)
   }
 
