@@ -64,7 +64,7 @@ class OmniVoiceModelManager(context: Context) {
         !relative.split('/').contains("..")) { "Unsafe model asset path" }
       val item = files.getJSONObject(relative)
       val url = item.getString("url")
-      require(url.startsWith("https://github.com/Sovai/-nocturne-note-models/releases/download/"))
+      require(url.startsWith("https://github.com/Sovai/-nocturne-note-models/releases/download/") || url.startsWith("https://github.com/Sovai/nocturne-note-models/releases/download/"))
       val hash = item.getString("sha256").lowercase()
       require(hash.matches(Regex("[a-f0-9]{64}")))
       val size = item.getLong("size")
