@@ -400,9 +400,7 @@ fun SettingsScreen(
         onEngine = { viewModel.setSpeechEngine(it) },
         onVoice = { viewModel.setSpeechVoice(it) },
         onSpeed = { viewModel.setReadAloudSpeed(it) },
-        onAddress = { viewModel.setSpeechServer(it) },
-        onToken = { viewModel.setSpeechToken(it) },
-        onTest = { viewModel.testOmniVoice() }
+        onBackground = { viewModel.setBackgroundReading(it) }
       )
 
       SpeechModelSettings(
