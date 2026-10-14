@@ -98,16 +98,21 @@ class OmniVoiceModelManager(context: Context) {
             val file = File(directory, asset.relativePath)
             file.parentFile?.mkdirs()
             val part = File(file.absolutePath + ".part")
+            val partialBytes = part.length().takeIf { it < asset.bytes } ?: 0L
             val connection = (URL(asset.url).openConnection() as HttpURLConnection).apply {
               connectTimeout = 20_000; readTimeout = 90_000
               instanceFollowRedirects = true
+              if (partialBytes > 0) setRequestProperty("Range", "bytes=$partialBytes-")
             }
             try {
-              check(connection.responseCode == 200)
+              val response = connection.responseCode
+              check(response == 200 || response == 206)
+              val append = response == 206 && partialBytes > 0
+              val startingBytes = if (append) partialBytes else 0L
               connection.inputStream.use { input ->
-                part.outputStream().buffered().use { output ->
+                java.io.FileOutputStream(part, append).buffered().use { output ->
                   val buf = ByteArray(64 * 1024)
-                  var size = 0L
+                  var size = startingBytes
                   while (true) {
                     val n = input.read(buf); if (n < 0) break
                     size += n
