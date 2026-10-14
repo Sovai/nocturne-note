@@ -21,13 +21,20 @@ The editor supports **Read Aloud** for the current document or highlighted text 
 The voice is the Khmer Meta MMS model converted to ONNX by [willwade](https://huggingface.co/willwade/mms-tts-multilingual-models-onnx), used locally through [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx). **Model license is CC BY-NC 4.0: noncommercial use only.** The model is not bundled in APKs; if commercial app distribution is planned, obtain appropriate model rights or replace the model. Deleting the downloaded model does not delete notes.
 
 
-### On-device model support (no PC, no external speech service)
+### Read Aloud engines: offline models and optional online Khmer voice
 
 - Android TTS: free fallback, using installed Khmer/English voices.
+- Edge Read Aloud (online): optional no-key Khmer neural TTS (Piseth male / Sreymom female). Needs internet but no model download, exposes voice, speech speed and pitch. Uses Microsoft's Edge Read Aloud consumer WebSocket protocol, **not Azure Speech's official free-tier API**. This is unofficial and may stop working or restrict access.
 - MMS Khmer: optional ~100 MB ONNX model, available for download/delete in Settings; known limitations in Khmer intelligibility.
 - OmniVoice ONNX: Android beta supports **fully offline inference** from downloaded ONNX model files: Qwen2 tokenization, 32-step audio-code unmasking, Higgs audio decoding, local PCM playback, and per-chunk generated-audio cache. No PC and no paid API. Memory usage, audio quality, and speed remain unverified on the physical Pixel 8 Pro.
 - Model registry: https://github.com/Sovai/-nocturne-note-models
 - Both model releases are now published with SHA-256-verified assets: `mms-khm-v1` (~109 MiB) and `omnivoice-onnx-int4-v1` (~735 MiB). The app prefers verified GitHub Release assets for MMS, using upstream only when the catalog cannot be reached. The model registry is currently named `-nocturne-note-models`; both the old and corrected URLs are accepted to support renaming.
+
+#### Online Edge Read Aloud (optional)
+
+Select **Edge Read Aloud · online** in Settings or the mini-player. Use Khmer voice **Piseth (male)** or **Sreymom (female)**, set speed (0.75–1.5×) and pitch (-40 to +40 Hz). It needs internet but no API key, PC, or model download. The app sends each selected passage over a secure WebSocket to Microsoft's Edge consumer Read Aloud service, receives MP3 audio and plays it through Android MediaPlayer. Previously generated audio is cached locally, bounded to 48 MiB. Pausing, seeking and existing notification controls remain available; network errors are shown rather than silently using another model.
+
+**This is not official Azure AI Speech F0** and must not be described as a guaranteed free Azure entitlement. The unsupported consumer endpoint may change, rate-limit, refuse access or be unsuitable for commercial voice output. See Microsoft's actual [Azure service terms](https://www.microsoft.com/licensing/terms/en-US/productoffering/MicrosoftAzure/allprograms). Offline engines remain available independently.
 
 #### OmniVoice Android beta limitations
 
@@ -40,7 +47,7 @@ Reference: https://huggingface.co/onnx-community/OmniVoice-Onnx
 #### Reading UX
 
 - A Read Aloud session temporarily switches the editor/preview body to a virtualized reading view, highlights the currently playing chunk, scrolls it into view, and permits tapping any chunk to play from there.
-- Mini-player has a progress seek slider, engine selection and speed; only installed Android fallback voices can be selected currently. MMS has one voice.
+- Mini-player has a progress seek slider, engine selection, speed and voice controls. Edge has two Khmer voice choices and adjustable pitch; Android fallback shows its installed voices. MMS has one voice.
 - Position is persisted per saved note, unless the note's text has changed; the next Read Aloud begins at the saved chunk. When reading finishes, progress resets. On explicit stop the chunk list disappears and normal note preview returns.
 - Playback prefetches the next chunk and caches generated MMS PCM under a 64 MiB limit, trims excessive silent tails, and exposes adjustable 0–600 ms extra pause and 1–4 CPU threads. Explicit MMS never silently switches to Android TTS when synthesis fails. First-time synthesis can still take longer than playback on some phones.
 - Background playback is opt-in under Settings. It uses an Android media foreground service with lock-screen/notification controls and audio focus. Leaving the note itself always stops playback. Without the option, leaving the app also stops playback.
@@ -56,7 +63,7 @@ Android CI no longer builds on each feature-branch commit. It runs on main pushe
 
 #### Licenses and privacy
 
-Meta MMS weights: CC BY-NC 4.0 (noncommercial). OmniVoice (k2-fsa) and the onnx-community conversion declare Apache-2.0; check each component and any future model assets individually before commercial redistribution. Voice models are not bundled into the APK. Normal reading is entirely local; internet is only used for optional model catalog/downloads.
+Meta MMS weights: CC BY-NC 4.0 (noncommercial). OmniVoice (k2-fsa) and the onnx-community conversion declare Apache-2.0; check each component and any future model assets individually before commercial redistribution. Voice models are not bundled into the APK. **MMS, OmniVoice and Android TTS never upload note text through this app.** Choosing Edge Read Aloud sends only the selected reading chunks and selected voice settings to Microsoft's online service. Voice requests require TLS; generated MP3 is cached privately and capped at 48 MiB. Edge access is unauthenticated and is not backed by an official Azure service-level or pricing agreement. Microsoft can change or block the consumer endpoint. The Azure Speech free tier is a distinct official product and may have different usage and output rights.
 
 ## Build
 
