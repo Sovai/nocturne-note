@@ -109,7 +109,10 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
   fun setSpeechEngine(engine: SpeechEngine) = SpeechRuntime.engine(engine)
   fun setSpeechVoice(voice: SpeechVoice) = speechSettingsStore.voice(voice)
-  fun setAndroidVoice(name: String) = speechSettingsStore.androidVoice(name)
+  fun setAndroidVoice(name: String) {
+    speechSettingsStore.androidVoice(name)
+    if (readAloudController.state.value.active) readAloudController.skip(0)
+  }
   fun setBackgroundReading(enabled: Boolean) = SpeechRuntime.background(enabled)
   fun downloadKhmerModel() { viewModelScope.launch { khmerModelManager.download() } }
   fun deleteKhmerModel() { stopReadAloud(); viewModelScope.launch { khmerModelManager.delete() } }
