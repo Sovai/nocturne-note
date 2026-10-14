@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
@@ -266,8 +267,12 @@ class ReadAloudController(
         _state.value = _state.value.copy(active = false, playing = false,
           paused = false, loading = false, error = e.message ?: "Speech unavailable")
       } finally {
-        pending?.cancel()
-        withContext(NonCancellable + Dispatchers.IO) { runCatching { offline?.release() } }
+        // Wait until an in-flight JNI synthesis call has exited before releasing
+        // its native model. Cancellation alone cannot interrupt generate().
+        withContext(NonCancellable) {
+          pending?.cancelAndJoin()
+          withContext(Dispatchers.IO) { runCatching { offline?.release() } }
+        }
         if (generation == playbackGeneration) closeTrack()
       }
     }
