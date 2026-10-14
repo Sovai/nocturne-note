@@ -17,7 +17,12 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -26,6 +31,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.testTag
 import com.example.ui.screens.EditorScreen
 import com.example.ui.screens.NoteListScreen
@@ -54,6 +61,15 @@ class MainActivity : ComponentActivity() {
 
     setContent {
       val themeMode by viewModel.themeMode.collectAsState()
+      val userMessage by viewModel.userMessage.collectAsState()
+      val appSnackbarHostState = remember { SnackbarHostState() }
+
+      LaunchedEffect(userMessage) {
+        userMessage?.let { message ->
+          viewModel.clearUserMessage()
+          appSnackbarHostState.showSnackbar(message)
+        }
+      }
       var currentScreen by remember { mutableStateOf(AppScreen.LIST) }
       var previousScreen by remember { mutableStateOf(AppScreen.LIST) }
 
@@ -95,6 +111,11 @@ class MainActivity : ComponentActivity() {
                     currentScreen = AppScreen.EDITOR
                   },
                   onNewNote = {
+                    viewModel.createNewNote()
+                    previousScreen = AppScreen.LIST
+                    currentScreen = AppScreen.EDITOR
+                  },
+                  onImportedNote = {
                     previousScreen = AppScreen.LIST
                     currentScreen = AppScreen.EDITOR
                   },
@@ -126,6 +147,12 @@ class MainActivity : ComponentActivity() {
               }
             }
           }
+          SnackbarHost(
+            hostState = appSnackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+              .navigationBarsPadding().imePadding().padding(bottom = 12.dp)
+              .testTag("global_snackbar_host")
+          )
         }
       }
     }

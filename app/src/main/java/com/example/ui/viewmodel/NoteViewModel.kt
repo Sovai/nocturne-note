@@ -223,6 +223,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   // --- Note Management ---
 
   fun openNote(note: NoteEntity) {
+    debouncedAutosaveJob?.cancel()
     undoStack.clear()
     redoStack.clear()
     undoStack.add(note.content)
@@ -253,6 +254,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   }
 
   fun createNewNote(initialTitle: String = "", initialContent: String = "", formatHint: String = "MD") {
+    debouncedAutosaveJob?.cancel()
     undoStack.clear()
     redoStack.clear()
     undoStack.add(initialContent)
