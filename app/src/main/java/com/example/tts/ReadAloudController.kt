@@ -28,6 +28,7 @@ import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import java.util.Locale
+import java.text.BreakIterator
 
 data class ReadAloudState(
   val active: Boolean = false,
@@ -53,8 +54,35 @@ object SpokenMarkdown {
       .split(Regex("""\n\s*\n|\n"""))
       .map { it.trim().replace(Regex("""\s+"""), " ") }
       .filter { it.isNotBlank() && !it.startsWith("---") }
-      .flatMap { it.chunked(260) }
+      .flatMap(::safeChunks)
   }
+
+  /** Splits on Unicode grapheme boundaries, never inside Khmer combining marks. */
+  private fun safeChunks(text: String): List<String> {
+    if (text.length <= 260) return listOf(text)
+    val iterator = BreakIterator.getCharacterInstance(Locale.forLanguageTag("km-KH"))
+    iterator.setText(text)
+    val result = mutableListOf<String>()
+    var start = 0
+    while (start < text.length) {
+      var end = iterator.following(start)
+      var boundary = end
+      while (end != BreakIterator.DONE && end - start <= 260) {
+        boundary = end
+        end = iterator.next()
+      }
+      if (end == BreakIterator.DONE) boundary = text.length
+      if (boundary <= start) break
+      val slice = text.substring(start, boundary)
+      val preferred = listOf(slice.lastIndexOf('។'), slice.lastIndexOf('៕'),
+        slice.lastIndexOf(' ')).maxOrNull() ?: -1
+      val next = if (preferred >= 130) start + preferred + 1 else boundary
+      result.add(text.substring(start, next).trim())
+      start = next
+    }
+    return result.filter { it.isNotBlank() }
+  }
+
   fun containsKhmer(text: String): Boolean = text.any { it in '\u1780'..'\u17FF' }
 }
 
