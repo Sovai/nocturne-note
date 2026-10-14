@@ -1,5 +1,8 @@
 package com.example.tts
 
+import android.app.ActivityManager
+import android.app.ApplicationExitInfo
+import android.os.Build
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -64,13 +67,39 @@ class OmniVoiceRemoteClient(context: Context) : AutoCloseable {
       if (!ready.isCompleted) ready.complete(Messenger(binder))
     }
     override fun onServiceDisconnected(name: ComponentName) {
-      failAll("OmniVoice's native process stopped unexpectedly (possibly low memory)")
+      failAll(describeWorkerExit())
     }
     override fun onBindingDied(name: ComponentName) {
       failAll("OmniVoice process binding was lost")
     }
     override fun onNullBinding(name: ComponentName) {
       failAll("OmniVoice process could not start")
+    }
+  }
+
+  private fun describeWorkerExit(): String {
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+      return "OmniVoice engine process stopped. The note editor is still running."
+    }
+    val exit = runCatching {
+      val manager = app.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+      manager.getHistoricalProcessExitReasons(app.packageName, 0, 10)
+        .firstOrNull { info ->
+          info.processName.endsWith(":omnivoice") &&
+            System.currentTimeMillis() - info.timestamp in 0L..120_000L
+        }
+    }.getOrNull()
+    return when (exit?.reason) {
+      ApplicationExitInfo.REASON_LOW_MEMORY ->
+        "OmniVoice ran out of available RAM. Close other apps and try a shorter passage."
+      ApplicationExitInfo.REASON_CRASH_NATIVE ->
+        "OmniVoice native engine crashed. Check Android logcat for NocturneOmniVoice."
+      ApplicationExitInfo.REASON_ANR ->
+        "OmniVoice engine became unresponsive."
+      ApplicationExitInfo.REASON_CRASH ->
+        "OmniVoice worker crashed. Check Android logcat for NocturneOmniVoice."
+      else ->
+        "OmniVoice engine exited unexpectedly. Check Android logcat for NocturneOmniVoice."
     }
   }
 
