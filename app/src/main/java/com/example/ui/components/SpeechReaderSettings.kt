@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material3.Button
@@ -28,6 +29,7 @@ import com.example.tts.SpeechEngine
 import com.example.tts.SpeechPreferences
 import com.example.tts.SpeechVoice
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SpeechReaderSettings(
   settings: SpeechPreferences,
