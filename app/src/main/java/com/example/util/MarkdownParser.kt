@@ -168,6 +168,24 @@ object MarkdownParser {
       while (currentIndex < length) {
         val remaining = text.substring(currentIndex)
 
+        // Combined bold + italic: applying both toolbar actions creates ***text***.
+        // Parse the triple delimiter first or the bold rule leaves stray asterisks.
+        if (remaining.startsWith("***")) {
+          val endCombined = remaining.indexOf("***", startIndex = 3)
+          if (endCombined != -1) {
+            val combinedContent = remaining.substring(3, endCombined)
+            val startPos = this.length
+            append(combinedContent)
+            addStyle(
+              SpanStyle(fontWeight = FontWeight.Bold, fontStyle = FontStyle.Italic),
+              startPos,
+              this.length
+            )
+            currentIndex += endCombined + 3
+            continue
+          }
+        }
+
         // Bold: **text**
         if (remaining.startsWith("**")) {
           val endBold = remaining.indexOf("**", startIndex = 2)

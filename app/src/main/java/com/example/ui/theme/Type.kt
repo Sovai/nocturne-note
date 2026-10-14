@@ -1,11 +1,15 @@
 package com.example.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.Font
 import com.example.R
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import android.os.Build
 import androidx.compose.ui.unit.sp
 
 val Typography = Typography(
@@ -85,10 +89,29 @@ val Typography = Typography(
   )
 )
 
-val NotoSerifKhmerFamily = FontFamily(
-  Font(R.font.noto_serif_khmer, FontWeight.Normal),
-  Font(R.font.noto_serif_khmer, FontWeight.Bold)
-)
+// The bundled Noto Serif Khmer is a variable font (wght axis). Register actual
+// variation settings for both weights rather than mapping the default 400 face
+// to "Bold", which makes Markdown bold appear identical to normal text.
+// On Android 7.x, use the regular face only so Compose can synthesize bold.
+@OptIn(ExperimentalTextApi::class)
+val NotoSerifKhmerFamily = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+  FontFamily(
+    Font(
+      resId = R.font.noto_serif_khmer,
+      weight = FontWeight.Normal,
+      style = FontStyle.Normal,
+      variationSettings = FontVariation.Settings(FontVariation.weight(400))
+    ),
+    Font(
+      resId = R.font.noto_serif_khmer,
+      weight = FontWeight.Bold,
+      style = FontStyle.Normal,
+      variationSettings = FontVariation.Settings(FontVariation.weight(700))
+    )
+  )
+} else {
+  FontFamily(Font(R.font.noto_serif_khmer, FontWeight.Normal))
+}
 
 private val HappyMonkeyFamily = FontFamily(
   Font(R.font.happy_monkey, FontWeight.Normal)

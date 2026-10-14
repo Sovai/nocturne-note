@@ -3,6 +3,7 @@ package com.example.ui.theme
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontSynthesis
 import androidx.compose.ui.text.input.OffsetMapping
 import androidx.compose.ui.text.input.TransformedText
 import androidx.compose.ui.text.input.VisualTransformation
@@ -22,11 +23,11 @@ fun AnnotatedString.withKhmerFont(): AnnotatedString = buildAnnotatedString {
     if (khmer || joiner) {
       if (start < 0) start = i
     } else if (start >= 0) {
-      addStyle(SpanStyle(fontFamily = NotoSerifKhmerFamily), start, i)
+      addStyle(SpanStyle(fontFamily = NotoSerifKhmerFamily, fontSynthesis = FontSynthesis.All), start, i)
       start = -1
     }
   }
-  if (start >= 0) addStyle(SpanStyle(fontFamily = NotoSerifKhmerFamily), start, content.length)
+  if (start >= 0) addStyle(SpanStyle(fontFamily = NotoSerifKhmerFamily, fontSynthesis = FontSynthesis.All), start, content.length)
 }
 
 fun String.withKhmerFont(): AnnotatedString = AnnotatedString(this).withKhmerFont()
