@@ -84,6 +84,7 @@ dependencies {
   implementation("ai.djl:api:0.33.0")
   implementation("ai.djl.huggingface:tokenizers:0.33.0")
   implementation("ai.djl.android:tokenizer-native:0.33.0")
+  implementation("com.squareup.okhttp3:okhttp:4.12.0")
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   testImplementation(libs.androidx.compose.ui.test.junit4)
