@@ -6,7 +6,7 @@ on:
   # Open/reopen/ready-for-review runs once; further builds are manual.
   pull_request:
     branches: [main]
-    types: [opened, reopened, ready_for_review]
+    types: [opened, reopened, ready_for_review, labeled]
   workflow_dispatch:
     inputs:
       run_emulator:
@@ -26,6 +26,9 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
+    # Bug-labeling a PR can intentionally run CI once after a set of commits.
+    # Regular synchronizations/commits do not initiate a build.
+    if: github.event_name != 'pull_request' || github.event.action != 'labeled' || github.event.label.name == 'bug'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
