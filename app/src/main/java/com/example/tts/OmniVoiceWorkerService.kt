@@ -1,5 +1,7 @@
 package com.example.tts
 
+import android.app.ActivityManager
+import android.content.Context
 import android.app.Service
 import android.content.Intent
 import android.os.Bundle
@@ -62,6 +64,11 @@ class OmniVoiceWorkerService : Service() {
             try {
               Log.i(TAG, "OmniVoice request $request: preparing local model")
               if (engine == null) {
+                val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+                val memory = ActivityManager.MemoryInfo().also(manager::getMemoryInfo)
+                check(!memory.lowMemory && memory.availMem >= 1_400_000_000L) {
+                  "Not enough available RAM for OmniVoice. Close other apps before reading."
+                }
                 val dir = File(filesDir, "tts/omnivoice-onnx-int4")
                 check(dir.isDirectory) { "The downloaded OmniVoice model was not found" }
                 engine = OmniVoiceOnDeviceEngine(dir, threads = 2)
