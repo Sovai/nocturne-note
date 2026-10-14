@@ -23,7 +23,8 @@ data class SpeechPreferences(
   val engine: SpeechEngine = SpeechEngine.AUTO,
   val voice: SpeechVoice = SpeechVoice.AUTO,
   val speed: Float = 1f,
-  val backgroundPlayback: Boolean = false
+  val backgroundPlayback: Boolean = false,
+  val androidVoiceName: String = ""
 )
 
 /** Persist only user preferences, never text or reference audio. */
@@ -36,7 +37,8 @@ class SpeechSettingsStore(context: Context) {
       voice = runCatching { SpeechVoice.valueOf(prefs.getString("voice", "AUTO") ?: "AUTO") }
         .getOrDefault(SpeechVoice.AUTO),
       speed = prefs.getFloat("speed", 1f).coerceIn(0.75f, 1.5f),
-      backgroundPlayback = prefs.getBoolean("background", false)
+      backgroundPlayback = prefs.getBoolean("background", false),
+      androidVoiceName = prefs.getString("android_voice", "") ?: ""
     )
   )
   val state = _state.asStateFlow()
@@ -45,7 +47,8 @@ class SpeechSettingsStore(context: Context) {
     prefs.edit().putString("engine", value.engine.name)
       .putString("voice", value.voice.name)
       .putFloat("speed", value.speed)
-      .putBoolean("background", value.backgroundPlayback).apply()
+      .putBoolean("background", value.backgroundPlayback)
+      .putString("android_voice", value.androidVoiceName).apply()
     _state.value = value
   }
 
@@ -53,4 +56,5 @@ class SpeechSettingsStore(context: Context) {
   fun voice(value: SpeechVoice) = update(_state.value.copy(voice = value))
   fun speed(value: Float) = update(_state.value.copy(speed = value.coerceIn(0.75f, 1.5f)))
   fun background(value: Boolean) = update(_state.value.copy(backgroundPlayback = value))
+  fun androidVoice(value: String) = update(_state.value.copy(androidVoiceName = value))
 }
