@@ -86,5 +86,7 @@ val Typography = Typography(
 enum class EditorFontChoice(val label: String, val fontFamily: FontFamily) {
   SANS("Sans", FontFamily.SansSerif),
   SERIF("Serif", FontFamily.Serif),
-  MONO("Mono", FontFamily.Monospace)
+  MONO("Mono", FontFamily.Monospace),
+  SYSTEM("System", FontFamily.Default),
+  HANDWRITING("Script", FontFamily.Cursive)
 }

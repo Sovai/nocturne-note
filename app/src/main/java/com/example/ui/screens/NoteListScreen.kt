@@ -1,6 +1,9 @@
 package com.example.ui.screens
 
 import android.net.Uri
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -37,6 +40,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -85,6 +90,7 @@ fun NoteListScreen(
   viewModel: NoteViewModel,
   onOpenNote: (NoteEntity) -> Unit,
   onNewNote: () -> Unit,
+  onImportedNote: () -> Unit,
   onOpenSettings: () -> Unit,
   modifier: Modifier = Modifier
 ) {
@@ -102,8 +108,7 @@ fun NoteListScreen(
     contract = ActivityResultContracts.OpenDocument()
   ) { uri: Uri? ->
     uri?.let {
-      viewModel.importDocumentFromUri(context, it)
-      onNewNote()
+      viewModel.importDocumentFromUri(context, it, onImported = onImportedNote)
     }
   }
 
@@ -115,18 +120,11 @@ fun NoteListScreen(
       TopAppBar(
         title = {
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-              modifier = Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-              contentAlignment = Alignment.Center
-            ) {
-              Text(
-                text = "🌙",
-                fontSize = 17.sp
-              )
-            }
+            Image(
+              painter = painterResource(R.drawable.nocturnenote_logo_image),
+              contentDescription = "NocturneNote",
+              modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+            )
             Spacer(modifier = Modifier.width(10.dp))
             Column {
               Text(
@@ -375,7 +373,7 @@ fun NoteListScreen(
       },
       onPasteClipboard = { text ->
         viewModel.pasteClipboardText(text)
-        onNewNote()
+        onImportedNote()
       },
       onDismiss = { showImportDialog = false }
     )
@@ -393,8 +391,26 @@ private fun NoteCard(
   modifier: Modifier = Modifier
 ) {
   var showMenu by remember { mutableStateOf(false) }
+  var showDeleteConfirmation by remember(note.id) { mutableStateOf(false) }
   val dateFormatted = remember(note.updatedAt) {
     SimpleDateFormat("MMM d, yyyy • h:mm a", Locale.getDefault()).format(Date(note.updatedAt))
+  }
+
+  if (showDeleteConfirmation) {
+    AlertDialog(
+      onDismissRequest = { showDeleteConfirmation = false },
+      title = { Text("Delete note?") },
+      text = { Text("“${note.title.ifBlank { "Untitled Note" }}” will be permanently deleted. This cannot be undone.") },
+      confirmButton = {
+        TextButton(onClick = { showDeleteConfirmation = false; onDelete() }) {
+          Text("Delete", color = MaterialTheme.colorScheme.error)
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showDeleteConfirmation = false }) { Text("Cancel") }
+      },
+      modifier = Modifier.testTag("confirm_note_delete_dialog")
+    )
   }
 
   Card(
@@ -505,8 +521,8 @@ private fun NoteCard(
                   Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                 },
                 onClick = {
-                  onDelete()
                   showMenu = false
+                  showDeleteConfirmation = true
                 }
               )
             }

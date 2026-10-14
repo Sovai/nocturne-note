@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -52,8 +53,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -100,7 +100,6 @@ fun EditorScreen(
   modifier: Modifier = Modifier
 ) {
   val context = LocalContext.current
-  val snackbarHostState = remember { SnackbarHostState() }
 
   val editorState by viewModel.editorState.collectAsState()
   val activeNoteVersions by viewModel.activeNoteVersions.collectAsState()
@@ -109,7 +108,6 @@ fun EditorScreen(
   val fontSize by viewModel.fontSize.collectAsState()
   val showLineNumbers by viewModel.showLineNumbers.collectAsState()
   val lastAutosaveStatus by viewModel.lastAutosaveStatus.collectAsState()
-  val userMessage by viewModel.userMessage.collectAsState()
 
   var showExportDialog by remember { mutableStateOf(false) }
   var showVersionHistorySheet by remember { mutableStateOf(false) }
@@ -128,14 +126,6 @@ fun EditorScreen(
     pendingExportFormat = null
   }
 
-  // Handle user snackbars
-  LaunchedEffect(userMessage) {
-    userMessage?.let {
-      snackbarHostState.showSnackbar(it)
-      viewModel.clearUserMessage()
-    }
-  }
-
   // Handle back button navigation
   BackHandler {
     when {
@@ -151,6 +141,7 @@ fun EditorScreen(
   }
 
   Scaffold(
+    contentWindowInsets = if (editorState.isZenMode) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
     modifier = modifier
       .fillMaxSize()
       .onPreviewKeyEvent { event ->
@@ -195,7 +186,6 @@ fun EditorScreen(
         }
       }
       .testTag("editor_screen"),
-    snackbarHost = { SnackbarHost(snackbarHostState) },
     topBar = {
       // Hide TopAppBar entirely in Distraction-Free Zen Mode
       if (!editorState.isZenMode) {
@@ -468,6 +458,22 @@ fun EditorScreen(
             onHistoryClick = { showVersionHistorySheet = true },
             onSettingsClick = onOpenSettings
           )
+        }
+      }
+
+      // A 48dp top-right exit target stays reachable even when the keyboard is visible.
+      if (editorState.isZenMode) {
+        Surface(
+          modifier = Modifier.align(Alignment.TopEnd)
+            .padding(top = 8.dp, end = 12.dp)
+            .testTag("zen_exit_top_control"),
+          shape = CircleShape,
+          color = MaterialTheme.colorScheme.surfaceContainerHigh,
+          tonalElevation = 4.dp
+        ) {
+          IconButton(onClick = { viewModel.exitZenMode() }, modifier = Modifier.size(48.dp)) {
+            Icon(Icons.Default.CloseFullscreen, contentDescription = "Exit fullscreen")
+          }
         }
       }
 

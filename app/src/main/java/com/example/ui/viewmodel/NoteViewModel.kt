@@ -176,6 +176,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   private var periodicAutosaveJob: Job? = null
   private var debouncedAutosaveJob: Job? = null
   private var lastVersionSnapshotTime: Long = 0L
+  @Volatile private var editorGeneration: Long = 0L
 
   // Notifications / Snackbar messages
   private val _userMessage = MutableStateFlow<String?>(null)
@@ -223,6 +224,8 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   // --- Note Management ---
 
   fun openNote(note: NoteEntity) {
+    editorGeneration++
+    debouncedAutosaveJob?.cancel()
     undoStack.clear()
     redoStack.clear()
     undoStack.add(note.content)
@@ -253,6 +256,8 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   }
 
   fun createNewNote(initialTitle: String = "", initialContent: String = "", formatHint: String = "MD") {
+    editorGeneration++
+    debouncedAutosaveJob?.cancel()
     undoStack.clear()
     redoStack.clear()
     undoStack.add(initialContent)
@@ -367,6 +372,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
    */
   fun saveActiveNote(reason: String = "Manual Save") {
     val state = _editorState.value
+    val generation = editorGeneration
     if (state.content.isBlank() && state.title.isBlank()) return
 
     val autoTitle = if (state.title.isBlank()) {
@@ -410,18 +416,21 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
           reason = reason
         )
       )
-      lastVersionSnapshotTime = now
-
       withContext(Dispatchers.Main) {
-        _editorState.value = _editorState.value.copy(
-          noteId = finalId,
-          title = autoTitle,
-          isSaved = true,
-          lastSavedTime = now
-        )
-        val timeStr = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(now))
-        _lastAutosaveStatus.value = "Saved at $timeStr"
-        _userMessage.value = "Note saved"
+        // An older async write must never overwrite a new note or newer edits.
+        if (editorGeneration == generation && _editorState.value.content == state.content &&
+          _editorState.value.title == state.title && _editorState.value.noteId == state.noteId) {
+          _editorState.value = _editorState.value.copy(
+            noteId = finalId,
+            title = autoTitle,
+            isSaved = true,
+            lastSavedTime = now
+          )
+          lastVersionSnapshotTime = now
+          val timeStr = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(now))
+          _lastAutosaveStatus.value = "Saved at $timeStr"
+          _userMessage.value = "Note saved"
+        }
       }
     }
   }
@@ -457,6 +466,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
   private suspend fun performAutosave(createVersionSnapshot: Boolean) {
     val state = _editorState.value
+    val generation = editorGeneration
     if (state.content.isBlank() && state.title.isBlank()) return
 
     val autoTitle = if (state.title.isBlank()) {
@@ -499,18 +509,21 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
           reason = "Autosave"
         )
       )
-      lastVersionSnapshotTime = now
     }
 
     withContext(Dispatchers.Main) {
-      _editorState.value = _editorState.value.copy(
-        noteId = finalId,
-        title = autoTitle,
-        isSaved = true,
-        lastSavedTime = now
-      )
-      val timeStr = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(now))
-      _lastAutosaveStatus.value = "Autosaved at $timeStr"
+      if (editorGeneration == generation && _editorState.value.content == state.content &&
+        _editorState.value.title == state.title && _editorState.value.noteId == state.noteId) {
+        _editorState.value = _editorState.value.copy(
+          noteId = finalId,
+          title = autoTitle,
+          isSaved = true,
+          lastSavedTime = now
+        )
+        if (createVersionSnapshot) lastVersionSnapshotTime = now
+        val timeStr = SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(now))
+        _lastAutosaveStatus.value = "Autosaved at $timeStr"
+      }
     }
   }
 

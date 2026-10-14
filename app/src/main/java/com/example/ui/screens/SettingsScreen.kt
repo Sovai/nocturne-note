@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -73,6 +74,8 @@ fun SettingsScreen(
   val isAutosaveEnabled by viewModel.isAutosaveEnabled.collectAsState()
   val autosaveIntervalMinutes by viewModel.autosaveIntervalMinutes.collectAsState()
   val allNotes by viewModel.allNotes.collectAsState()
+
+  BackHandler(onBack = onNavigateBack)
 
   Scaffold(
     modifier = modifier
@@ -217,12 +220,14 @@ fun SettingsScreen(
             )
           }
 
-          // Font Choice Chips
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-          ) {
-            EditorFontChoice.values().forEach { font ->
+          // Two-row picker keeps all fonts visible on compact devices.
+          Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            EditorFontChoice.entries.chunked(3).forEach { rowFonts ->
+              Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                rowFonts.forEach { font ->
               val isSelected = currentFont == font
               Surface(
                 modifier = Modifier
@@ -247,6 +252,8 @@ fun SettingsScreen(
                     ),
                     color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                   )
+                }
+              }
                 }
               }
             }
