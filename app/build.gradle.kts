@@ -78,6 +78,7 @@ dependencies {
   implementation(libs.androidx.room.runtime)
 
   // Sign-In via Credential Manager:
+  implementation("com.xdcobra.sherpa:sherpa-onnx:1.13.8-1")
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
   testImplementation(libs.androidx.compose.ui.test.junit4)
