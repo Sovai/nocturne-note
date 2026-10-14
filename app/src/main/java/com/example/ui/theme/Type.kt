@@ -1,6 +1,7 @@
 package com.example.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.Font
@@ -92,6 +93,7 @@ val Typography = Typography(
 // variation settings for both weights rather than mapping the default 400 face
 // to "Bold", which makes Markdown bold appear identical to normal text.
 // On Android 7.x, use the regular face only so Compose can synthesize bold.
+@OptIn(ExperimentalTextApi::class)
 val NotoSerifKhmerFamily = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
   FontFamily(
     Font(
