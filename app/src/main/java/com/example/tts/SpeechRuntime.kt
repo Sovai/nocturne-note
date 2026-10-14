@@ -17,6 +17,8 @@ object SpeechRuntime {
   private lateinit var app: Context
   lateinit var models: KhmerModelManager
     private set
+  lateinit var omniModels: OmniVoiceModelManager
+    private set
   lateinit var settings: SpeechSettingsStore
     private set
   lateinit var controller: ReadAloudController
@@ -38,6 +40,7 @@ object SpeechRuntime {
     if (::controller.isInitialized) return
     app = context.applicationContext
     models = KhmerModelManager(app)
+    omniModels = OmniVoiceModelManager(app)
     settings = SpeechSettingsStore(app)
     controller = ReadAloudController(app, models, settings)
     audioManager = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
