@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android adaptive icons use a 108dp viewport with a smaller launcher mask.
+     The original symbol already has padding, but its corners still reached the
+     circular Pixel mask. Another 12dp inset provides safe breathing room.
+     Keep the foreground transparent; do not bake in a rounded-square tile. -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/nocturnenote_icon_foreground"
+    android:insetLeft="12dp"
+    android:insetTop="12dp"
+    android:insetRight="12dp"
+    android:insetBottom="12dp" />
