@@ -4,6 +4,7 @@ import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -107,7 +108,7 @@ class EdgeTtsClient(context: Context) {
         file.readBytes()
       } else null
     }?.let { return it }
-    val audio = requestAudio(markup)
+    val audio = withTimeout(65_000L) { requestAudio(markup) }
     withContext(Dispatchers.IO) {
       runCatching {
         val temp = File(directory, "$hash.tmp")
@@ -184,3 +185,4 @@ class EdgeTtsClient(context: Context) {
       })
       continuation.invokeOnCancellation { socket.cancel() }
     }
+}
