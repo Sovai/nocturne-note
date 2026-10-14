@@ -61,14 +61,22 @@ class KhmerModelManager(context: Context) {
    * release URLs, SHA-256 hashes and byte sizes for both required files.
    */
   private fun mirror(): Mirror? = runCatching {
-    val url = URL("https://raw.githubusercontent.com/Sovai/-nocturne-note-models/main/catalog.json")
-    val connection = (url.openConnection() as HttpURLConnection).apply {
-      connectTimeout = 5000; readTimeout = 5000
-    }
-    val json = try {
-      require(connection.responseCode == 200)
-      connection.inputStream.bufferedReader().use { JSONObject(it.readText()) }
-    } finally { connection.disconnect() }
+    val urls = listOf(
+      "https://raw.githubusercontent.com/Sovai/-nocturne-note-models/main/catalog.json",
+      "https://raw.githubusercontent.com/Sovai/nocturne-note-models/main/catalog.json"
+    )
+    val json = urls.firstNotNullOfOrNull { address ->
+      runCatching {
+        val conn = (URL(address).openConnection() as HttpURLConnection).apply {
+          connectTimeout = 5000
+          readTimeout = 5000
+        }
+        try {
+          check(conn.responseCode == 200)
+          conn.inputStream.bufferedReader().use { JSONObject(it.readText()) }
+        } finally { conn.disconnect() }
+      }.getOrNull()
+    } ?: error("No model catalog available")
     val items = json.getJSONArray("models")
     val model = (0 until items.length()).map { items.getJSONObject(it) }
       .first { it.getString("id") == "mms-khm" }
