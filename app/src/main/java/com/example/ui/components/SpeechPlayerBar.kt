@@ -1,5 +1,7 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,15 +41,18 @@ import kotlin.math.roundToInt
 fun SpeechPlayerBar(
   state: ReadAloudState,
   preferences: SpeechPreferences,
+  androidVoices: List<String>,
   onToggle: () -> Unit,
   onStop: () -> Unit,
   onSeek: (Int) -> Unit,
   onSkip: (Int) -> Unit,
   onSpeed: (Float) -> Unit,
-  onEngine: (SpeechEngine) -> Unit
+  onEngine: (SpeechEngine) -> Unit,
+  onAndroidVoice: (String) -> Unit
 ) {
   if (!state.active && state.error == null) return
   var modelMenu by remember { mutableStateOf(false) }
+  var voiceMenu by remember { mutableStateOf(false) }
   var seeking by remember { mutableStateOf<Float?>(null) }
   Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh,
     modifier = Modifier.fillMaxWidth().testTag("read_aloud_player")) {
@@ -72,7 +77,7 @@ fun SpeechPlayerBar(
         )
       }
       Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
-        modifier = Modifier.fillMaxWidth()) {
+        modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
         if (state.active) {
           TextButton(onClick = { modelMenu = true },
             modifier = Modifier.testTag("read_aloud_engine")) {
@@ -85,6 +90,19 @@ fun SpeechPlayerBar(
                 enabled = engine != SpeechEngine.OMNIVOICE,
                 onClick = { onEngine(engine); modelMenu = false }
               )
+            }
+          }
+          if (preferences.engine == SpeechEngine.ANDROID ||
+            preferences.engine == SpeechEngine.AUTO) {
+            TextButton(onClick = { voiceMenu = true }) {
+              Text(if (preferences.androidVoiceName.isBlank()) "Voice"
+                else preferences.androidVoiceName.take(12))
+            }
+            DropdownMenu(expanded = voiceMenu, onDismissRequest = { voiceMenu = false }) {
+              androidVoices.forEach { name ->
+                DropdownMenuItem(text = { Text(name) },
+                  onClick = { onAndroidVoice(name); voiceMenu = false })
+              }
             }
           }
           TextButton(onClick = { onSpeed(if (state.speed >= 1.5f) 0.75f
