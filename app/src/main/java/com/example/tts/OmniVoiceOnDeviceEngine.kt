@@ -12,7 +12,6 @@ import kotlinx.coroutines.ensureActive
 import java.io.Closeable
 import java.io.File
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import java.nio.FloatBuffer
 import java.nio.LongBuffer
 import java.nio.ShortBuffer
@@ -46,14 +45,20 @@ class OmniVoiceOnDeviceEngine(private val root: File, threads: Int = 2) : Closea
     return target.absolutePath
   }
 
-  private val embedding by lazy { environment.createSession(file("int4/audio_embeddings_encoder.onnx"), options) }
-  private val llm by lazy { environment.createSession(file("int4/llm_decoder.onnx"), options) }
-  private val heads by lazy { environment.createSession(file("int4/audio_heads_decoder.onnx"), options) }
-  private val higgs by lazy { environment.createSession(file("audio_tokenizer/fp16/higgs_decoder.onnx"), options) }
-  private val tokenizer by lazy {
+  private val embeddingDelegate = lazy { environment.createSession(file("int4/audio_embeddings_encoder.onnx"), options) }
+  private val llmDelegate = lazy { environment.createSession(file("int4/llm_decoder.onnx"), options) }
+  private val headsDelegate = lazy { environment.createSession(file("int4/audio_heads_decoder.onnx"), options) }
+  private val higgsDelegate = lazy { environment.createSession(file("audio_tokenizer/fp16/higgs_decoder.onnx"), options) }
+  private val tokenizerDelegate = lazy {
     check(Build.VERSION.SDK_INT >= 26) { "OmniVoice requires Android 8.0 or newer" }
     HuggingFaceTokenizer.newInstance(Paths.get(file("int4/tokenizer.json")))
   }
+
+  private val embedding get() = embeddingDelegate.value
+  private val llm get() = llmDelegate.value
+  private val heads get() = headsDelegate.value
+  private val higgs get() = higgsDelegate.value
+  private val tokenizer get() = tokenizerDelegate.value
 
   private fun longs(values: LongArray, vararg shape: Long) =
     OnnxTensor.createTensor(environment, LongBuffer.wrap(values), shape)
@@ -210,14 +215,12 @@ class OmniVoiceOnDeviceEngine(private val root: File, threads: Int = 2) : Closea
   }
 
   override fun close() {
-    if (::noop.isInitialized) Unit // Keep close predictable with lazy resources
-    runCatching { tokenizer.close() }
-    runCatching { higgs.close() }
-    runCatching { heads.close() }
-    runCatching { llm.close() }
-    runCatching { embedding.close() }
+    if (tokenizerDelegate.isInitialized()) runCatching { tokenizer.close() }
+    if (higgsDelegate.isInitialized()) runCatching { higgs.close() }
+    if (headsDelegate.isInitialized()) runCatching { heads.close() }
+    if (llmDelegate.isInitialized()) runCatching { llm.close() }
+    if (embeddingDelegate.isInitialized()) runCatching { embedding.close() }
     options.close()
   }
 
-  private lateinit var noop: String
 }
