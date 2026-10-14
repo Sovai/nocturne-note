@@ -3,93 +3,112 @@ package com.example.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.tts.ReadAloudState
+import com.example.tts.SpeechEngine
+import com.example.tts.SpeechPreferences
+import kotlin.math.roundToInt
 
 @Composable
 fun SpeechPlayerBar(
   state: ReadAloudState,
+  preferences: SpeechPreferences,
   onToggle: () -> Unit,
   onStop: () -> Unit,
+  onSeek: (Int) -> Unit,
   onSkip: (Int) -> Unit,
-  onSpeed: (Float) -> Unit
+  onSpeed: (Float) -> Unit,
+  onEngine: (SpeechEngine) -> Unit
 ) {
-  Surface(
-    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-    modifier = Modifier.fillMaxWidth().testTag("read_aloud_player")
-  ) {
-    Column {
-      if (state.active) {
-        LinearProgressIndicator(
-          progress = { if (state.totalParagraphs == 0) 0f
-            else (state.paragraph + 1f) / state.totalParagraphs },
-          modifier = Modifier.fillMaxWidth()
+  if (!state.active && state.error == null) return
+  var modelMenu by remember { mutableStateOf(false) }
+  var seeking by remember { mutableStateOf<Float?>(null) }
+  Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    modifier = Modifier.fillMaxWidth().testTag("read_aloud_player")) {
+    Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
+      Text(
+        text = state.error ?: if (state.loading) "Generating speech…" else "Read Aloud",
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+        color = if (state.error != null) MaterialTheme.colorScheme.error
+          else MaterialTheme.colorScheme.onSurface
+      )
+      if (state.active && state.chunks.isNotEmpty()) {
+        val maxIndex = (state.totalParagraphs - 1).coerceAtLeast(0)
+        Slider(
+          value = seeking ?: state.paragraph.toFloat(),
+          onValueChange = { seeking = it },
+          onValueChangeFinished = {
+            seeking?.let { onSeek(it.roundToInt()) }
+            seeking = null
+          },
+          valueRange = 0f..maxIndex.coerceAtLeast(1).toFloat(),
+          modifier = Modifier.fillMaxWidth().testTag("read_aloud_seek")
         )
       }
-      Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(2.dp)
-      ) {
-        Column(modifier = Modifier.weight(1f).padding(start = 6.dp)) {
-          Text(
-            text = if (state.error != null) "Reader error" else if (state.loading) "Preparing speech…"
-              else "Read Aloud",
-            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold)
-          )
-          Text(
-            text = state.error ?: (
-              (if (state.engine.isBlank()) "Preparing" else state.engine) +
-                " · " + (state.paragraph + 1) + "/" + state.totalParagraphs
-            ),
-            style = MaterialTheme.typography.labelSmall,
-            color = if (state.error != null) MaterialTheme.colorScheme.error
-              else MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 2
-          )
-        }
+      Row(horizontalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.fillMaxWidth()) {
         if (state.active) {
-          TextButton(onClick = {
-            val speeds = listOf(0.75f, 1f, 1.25f, 1.5f)
-            onSpeed(speeds[(speeds.indexOf(state.speed) + 1).mod(speeds.size)])
-          }, modifier = Modifier.testTag("read_aloud_speed")) {
-            Text(state.speed.toString() + "×")
+          TextButton(onClick = { modelMenu = true },
+            modifier = Modifier.testTag("read_aloud_engine")) {
+            Text(preferences.engine.label, maxLines = 1)
+          }
+          DropdownMenu(expanded = modelMenu, onDismissRequest = { modelMenu = false }) {
+            SpeechEngine.entries.forEach { engine ->
+              DropdownMenuItem(
+                text = { Text(engine.label) },
+                enabled = engine != SpeechEngine.OMNIVOICE,
+                onClick = { onEngine(engine); modelMenu = false }
+              )
+            }
+          }
+          TextButton(onClick = { onSpeed(if (state.speed >= 1.5f) 0.75f
+            else (state.speed + 0.25f).coerceAtMost(1.5f)) }) {
+            Text(String.format("%.2f×", state.speed))
           }
           IconButton(onClick = { onSkip(-1) }) {
-            Icon(Icons.Default.SkipPrevious, contentDescription = "Previous paragraph")
+            Icon(Icons.Default.SkipPrevious, contentDescription = "Previous chunk")
           }
           IconButton(onClick = onToggle, enabled = !state.loading) {
             Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
-              contentDescription = if (state.playing) "Pause reading" else "Resume reading")
+              contentDescription = if (state.playing) "Pause" else "Resume")
           }
           IconButton(onClick = { onSkip(1) }) {
-            Icon(Icons.Default.SkipNext, contentDescription = "Next paragraph")
+            Icon(Icons.Default.SkipNext, contentDescription = "Next chunk")
           }
+          Text(
+            text = "${state.paragraph + 1}/${state.totalParagraphs}",
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.padding(top = 16.dp)
+          )
         }
         IconButton(onClick = onStop) {
-          Icon(Icons.Default.Close, contentDescription = "Close reader")
+          Icon(Icons.Default.Close, contentDescription = "Stop and close reader")
         }
       }
     }
