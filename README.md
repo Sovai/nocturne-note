@@ -27,13 +27,13 @@ The voice is the Khmer Meta MMS model converted to ONNX by [willwade](https://hu
 - MMS Khmer: optional ~100 MB ONNX model, available for download/delete in Settings; known limitations in Khmer intelligibility.
 - OmniVoice ONNX: phone-only experimental candidate. **Model catalog/downloader is implemented, but full Android inference is not yet validated, and OmniVoice is disabled for playback until then.** No PC server and no paid API are used.
 - Model registry: https://github.com/Sovai/-nocturne-note-models
-- The model repository currently contains a catalog and a manual workflow for release mirroring; do not claim it already hosts weights. The app prefers verified GitHub Release assets for MMS when published and falls back to the existing upstream location in the meantime.
+- Both model releases are now published with SHA-256-verified assets: `mms-khm-v1` (~109 MiB) and `omnivoice-onnx-int4-v1` (~735 MiB). The app prefers verified GitHub Release assets for MMS, using upstream only when the catalog cannot be reached. The model registry is currently named `-nocturne-note-models`; both the old and corrected URLs are accepted to support renaming.
 
 #### Why mobile OmniVoice is not marked playable yet
 
 The ONNX-Community conversion is a Qwen3-based 32-step unmasking system with several ONNX subgraphs and the Higgs audio codec. ONNX Runtime can execute the graphs, but running an isolated ONNX session is **not** an end-to-end Khmer speech engine. A mobile port still requires Qwen tokenizer logic, iterative 8-codebook decoding, accurate codec synthesis, audio buffers, lifecycle and cancellation, and device profiling.
 
-Candidate INT4 artifacts total roughly 758 MB, not counting runtime overhead or extra files. Physical Android testing of RAM, synthesis speed and quality must pass before enabling the OmniVoice model in the player.
+The published INT4 and FP16 Higgs assets total approximately 735 MiB, not counting runtime overhead. Physical Android testing of RAM, synthesis speed and quality must pass before enabling the OmniVoice model in the player.
 
 Reference: https://huggingface.co/onnx-community/OmniVoice-Onnx
 
@@ -42,7 +42,7 @@ Reference: https://huggingface.co/onnx-community/OmniVoice-Onnx
 - A Read Aloud session temporarily switches the editor/preview body to a virtualized reading view, highlights the currently playing chunk, scrolls it into view, and permits tapping any chunk to play from there.
 - Mini-player has a progress seek slider, engine selection and speed; only installed Android fallback voices can be selected currently. MMS has one voice.
 - Position is persisted per saved note, unless the note's text has changed; the next Read Aloud begins at the saved chunk. When reading finishes, progress resets. On explicit stop the chunk list disappears and normal note preview returns.
-- Playback prefetches the next chunk; pause and focus loss pause audio rather than triggering model fallback.
+- Playback prefetches the next chunk and caches generated MMS PCM under a 64 MiB limit, trims excessive silent tails, and exposes adjustable 0–600 ms extra pause and 1–4 CPU threads. Explicit MMS never silently switches to Android TTS when synthesis fails. First-time synthesis can still take longer than playback on some phones.
 - Background playback is opt-in under Settings. It uses an Android media foreground service with lock-screen/notification controls and audio focus. Leaving the note itself always stops playback. Without the option, leaving the app also stops playback.
 
 #### Licenses and privacy
