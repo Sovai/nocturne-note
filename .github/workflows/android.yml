@@ -50,7 +50,7 @@ jobs:
         run: |
           if [ -e /dev/kvm ]; then sudo chmod a+rw /dev/kvm; fi
       - name: Verify Zen mode on Android emulator
-        if: github.event_name == 'pull_request'
+        if: (github.event_name == 'pull_request' && github.event.action != 'labeled') || (github.event_name == 'workflow_dispatch' && inputs.run_emulator == true)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -75,7 +75,7 @@ jobs:
         if: (github.event_name == 'workflow_dispatch' && inputs.build_release == true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]')) || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'build/internal-release-apk-'))
         run: gradle --no-daemon -PnocturneInternalRelease=true :app:assembleRelease
       - name: Verify internal release signing and version
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]')) || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'build/internal-release-apk-'))
+        if: (github.event_name == 'workflow_dispatch' && inputs.build_release == true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]')) || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'build/internal-release-apk-'))
         run: |
           apk="app/build/outputs/apk/release/app-release.apk"
           test -s "$apk"
