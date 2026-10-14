@@ -13,6 +13,9 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Switch
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -48,11 +51,15 @@ fun SpeechPlayerBar(
   onSkip: (Int) -> Unit,
   onSpeed: (Float) -> Unit,
   onEngine: (SpeechEngine) -> Unit,
-  onAndroidVoice: (String) -> Unit
+  onAndroidVoice: (String) -> Unit,
+  onMmsTrim: (Boolean) -> Unit,
+  onMmsPause: (Int) -> Unit,
+  onMmsThreads: (Int) -> Unit
 ) {
   if (!state.active && state.error == null) return
   var modelMenu by remember { mutableStateOf(false) }
   var voiceMenu by remember { mutableStateOf(false) }
+  var mmsOptions by remember { mutableStateOf(false) }
   var seeking by remember { mutableStateOf<Float?>(null) }
   Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh,
     modifier = Modifier.fillMaxWidth().testTag("read_aloud_player")) {
@@ -107,6 +114,12 @@ fun SpeechPlayerBar(
               }
             }
           }
+          if (preferences.engine == SpeechEngine.MMS ||
+            (preferences.engine == SpeechEngine.AUTO && state.engine.startsWith("Khmer MMS"))) {
+            IconButton(onClick = { mmsOptions = true }, modifier = Modifier.testTag("mms_player_settings")) {
+              Icon(Icons.Default.Settings, contentDescription = "MMS playback settings")
+            }
+          }
           TextButton(onClick = { onSpeed(if (state.speed >= 1.5f) 0.75f
             else (state.speed + 0.25f).coerceAtMost(1.5f)) }) {
             Text(String.format("%.2f×", state.speed))
@@ -133,4 +146,26 @@ fun SpeechPlayerBar(
       }
     }
   }
+  if (mmsOptions) AlertDialog(
+    onDismissRequest = { mmsOptions = false },
+    title = { Text("MMS playback settings") },
+    text = {
+      androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("MMS has one fixed Khmer voice. Adjust how it plays.")
+        androidx.compose.foundation.layout.Row {
+          Text("Trim excessive silence", modifier = Modifier.weight(1f))
+          Switch(checked = preferences.mmsTrimSilence, onCheckedChange = onMmsTrim)
+        }
+        Text("Extra pause · " + preferences.mmsPauseMs + " ms")
+        Slider(value = preferences.mmsPauseMs.toFloat(),
+          onValueChange = { onMmsPause((it.toInt() / 20) * 20) },
+          valueRange = 0f..600f)
+        Text("Synthesis threads · " + preferences.mmsThreads)
+        Slider(value = preferences.mmsThreads.toFloat(),
+          onValueChange = { onMmsThreads(it.roundToInt()) },
+          valueRange = 1f..4f, steps = 2)
+      }
+    },
+    confirmButton = { TextButton(onClick = { mmsOptions = false }) { Text("Done") } }
+  )
 }
