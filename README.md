@@ -53,6 +53,10 @@ Reference: https://huggingface.co/onnx-community/OmniVoice-Onnx
 - Background playback is opt-in under Settings. It uses an Android media foreground service with lock-screen/notification controls and audio focus. Leaving the note itself always stops playback. Without the option, leaving the app also stops playback.
 
 
+#### Diagnosing the October 14 OmniVoice tokenizer failure
+
+The captured Android log at 17:03 reported `UnsatisfiedLinkError: libc++_shared.so not found` while loading DJL's `libdjl_tokenizer.so`. The previous APK did not package the tokenizer's required NDK C++ shared runtime. This was **not** a low-memory failure: it stopped before tokenization or ONNX inference. The build now stages the pinned Android NDK's C++ runtime for each ABI into the APK and CI verifies that both the tokenizer and `libc++_shared.so` are packaged. The Android editor process remained alive thanks to the isolated inference worker; end-to-end model synthesis still requires device validation.
+
 #### OmniVoice crash recovery and Android CI
 
 OmniVoice inference runs in a dedicated Android `:omnivoice` subprocess instead of the editor process. If the 735 MiB model exceeds memory limits or a native library crashes, the reader shows an error rather than terminating the note editor. The worker returns PCM through a private cache file, avoiding Android Binder's message-size limit. Available-memory checks and conservative ONNX session optimization reduce the risk of native out-of-memory failures. This **does not prove** that the model produces correct Khmer audio: a device test is still required.
