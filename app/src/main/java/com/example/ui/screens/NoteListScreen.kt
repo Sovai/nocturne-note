@@ -80,6 +80,7 @@ import com.example.ui.components.ImportDialog
 import com.example.ui.viewmodel.FilterCategory
 import com.example.ui.viewmodel.NoteSortOrder
 import com.example.ui.viewmodel.NoteViewModel
+import com.example.ui.theme.withKhmerFont
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -123,20 +124,9 @@ fun NoteListScreen(
             Image(
               painter = painterResource(R.drawable.nocturnenote_logo_image),
               contentDescription = "NocturneNote",
-              modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+              modifier = Modifier.width(188.dp).height(42.dp),
+              contentScale = androidx.compose.ui.layout.ContentScale.Fit
             )
-            Spacer(modifier = Modifier.width(10.dp))
-            Column {
-              Text(
-                text = "NocturneNote",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-              )
-              Text(
-                text = "Focus & Simplicity",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
-              )
-            }
           }
         },
         actions = {
@@ -456,7 +446,7 @@ private fun NoteCard(
             )
           }
           Text(
-            text = note.title.ifBlank { "Untitled Note" },
+            text = note.title.ifBlank { "Untitled Note" }.withKhmerFont(),
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -543,7 +533,7 @@ private fun NoteCard(
 
       if (cleanSnippet.isNotBlank()) {
         Text(
-          text = cleanSnippet,
+          text = cleanSnippet.withKhmerFont(),
           style = MaterialTheme.typography.bodyMedium,
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           maxLines = 2,

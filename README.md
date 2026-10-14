@@ -46,4 +46,6 @@ NocturneNote uses the application ID `com.sovai.nocturnenote` as of v1.0.2. It c
 
 ## Fonts
 
-The editor defaults to bundled Noto Serif Khmer (SIL Open Font License), including offline text rendering. You can choose another font in Settings; font selection is stored locally across app restarts.
+Khmer text is always rendered with bundled Noto Serif Khmer (SIL Open Font License), including in mixed Khmer/Latin notes. The six choices in Settings affect only Latin/English glyphs: Sans, Serif, Mono, System, Script and Happy Monkey (also bundled under the SIL Open Font License). English font and light/dark theme preferences persist across restarts.
+
+The two app themes are Light (default) and Dark. The palette is inspired by the logo's indigo, turquoise and muted moon-gold.

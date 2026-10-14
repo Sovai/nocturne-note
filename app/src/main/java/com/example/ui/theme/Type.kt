@@ -85,16 +85,20 @@ val Typography = Typography(
   )
 )
 
-private val NotoSerifKhmer = FontFamily(
+val NotoSerifKhmerFamily = FontFamily(
   Font(R.font.noto_serif_khmer, FontWeight.Normal),
   Font(R.font.noto_serif_khmer, FontWeight.Bold)
 )
 
+private val HappyMonkeyFamily = FontFamily(
+  Font(R.font.happy_monkey, FontWeight.Normal)
+)
+
 enum class EditorFontChoice(val label: String, val fontFamily: FontFamily) {
-  NOTO_SERIF_KHMER("Noto Serif Khmer", NotoSerifKhmer),
   SANS("Sans", FontFamily.SansSerif),
   SERIF("Serif", FontFamily.Serif),
   MONO("Mono", FontFamily.Monospace),
   SYSTEM("System", FontFamily.Default),
-  HANDWRITING("Script", FontFamily.Cursive)
+  HANDWRITING("Script", FontFamily.Cursive),
+  HAPPY_MONKEY("Happy Monkey", HappyMonkeyFamily)
 }

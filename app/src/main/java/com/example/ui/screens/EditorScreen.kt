@@ -84,6 +84,7 @@ import com.example.ui.components.FindAndReplaceBar
 import com.example.ui.components.FormattingBar
 import com.example.ui.components.MarkdownPreviewView
 import com.example.ui.components.VersionHistorySheet
+import com.example.ui.theme.KhmerFontVisualTransformation
 import com.example.ui.viewmodel.EditorViewMode
 import com.example.ui.viewmodel.NoteViewModel
 import com.example.util.DocumentExporter
@@ -203,6 +204,7 @@ fun EditorScreen(
               ),
               cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
               singleLine = true,
+              visualTransformation = KhmerFontVisualTransformation,
               decorationBox = { innerTextField ->
                 if (editorState.title.isEmpty()) {
                   Text(
@@ -694,6 +696,7 @@ private fun EditorInputView(
         color = MaterialTheme.colorScheme.onBackground
       ),
       cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+      visualTransformation = KhmerFontVisualTransformation,
       decorationBox = { innerTextField ->
         if (content.isEmpty()) {
           Text(
