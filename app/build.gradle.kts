@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -122,7 +124,7 @@ val stageTokenizerCxxRuntime = tasks.register<Copy>("stageTokenizerCxxRuntime") 
     val sdkLocation = providers.environmentVariable("ANDROID_HOME")
       .orElse(providers.environmentVariable("ANDROID_SDK_ROOT"))
       .orElse(providers.provider {
-        val props = java.util.Properties()
+        val props = Properties()
         val local = rootProject.file("local.properties")
         if (local.isFile) local.inputStream().use { props.load(it) }
         props.getProperty("sdk.dir")
