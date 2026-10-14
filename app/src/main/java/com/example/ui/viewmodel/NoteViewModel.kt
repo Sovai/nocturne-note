@@ -97,7 +97,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   fun startReadAloud() {
     val current = _editorTextFieldValue.value
     val selection = current.selection
-    val source = if (selection.collapsed) _editorState.value.content
+    val source = if (selection.collapsed || _editorState.value.viewMode != EditorViewMode.EDIT) _editorState.value.content
       else current.text.substring(selection.min, selection.max)
     readAloudController.start(source)
   }
