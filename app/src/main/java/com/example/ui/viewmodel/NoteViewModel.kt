@@ -98,9 +98,11 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   val speechPreferences = SpeechRuntime.settings.state
   val speechModelState = SpeechRuntime.models.state
   val readAloudState = SpeechRuntime.controller.state
+  val availableAndroidVoices = SpeechRuntime.controller.availableAndroidVoices
 
   fun setSpeechEngine(engine: SpeechEngine) = SpeechRuntime.engine(engine)
   fun setSpeechVoice(voice: SpeechVoice) = speechSettingsStore.voice(voice)
+  fun setAndroidVoice(name: String) = speechSettingsStore.androidVoice(name)
   fun setBackgroundReading(enabled: Boolean) = SpeechRuntime.background(enabled)
   fun downloadKhmerModel() { viewModelScope.launch { khmerModelManager.download() } }
   fun deleteKhmerModel() { stopReadAloud(); viewModelScope.launch { khmerModelManager.delete() } }
