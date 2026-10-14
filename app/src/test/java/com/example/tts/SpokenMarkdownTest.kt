@@ -23,6 +23,14 @@ class SpokenMarkdownTest {
     assertFalse(SpokenMarkdown.containsKhmer("Hello"))
   }
 
+  @Test fun preservesKhmerCombiningClustersWhenChunking() {
+    val original = "ក".repeat(259) + "កា" + "ក".repeat(300)
+    val chunks = SpokenMarkdown.paragraphs(original)
+    assertEquals(original, chunks.joinToString(""))
+    assertTrue(chunks.all { it.length <= 260 || it.length == 261 })
+    assertTrue(chunks.none { it.startsWith("ា") })
+  }
+
   @Test fun chunksLongParagraphs() {
     val paragraphs = SpokenMarkdown.paragraphs("ក".repeat(600))
     assertEquals(3, paragraphs.size)
