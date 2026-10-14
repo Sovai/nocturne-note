@@ -2,6 +2,7 @@ package com.example
 
 import android.content.Intent
 import android.net.Uri
+import androidx.core.content.IntentCompat
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,6 +32,7 @@ import com.example.ui.screens.NoteListScreen
 import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.NocturneTheme
 import com.example.ui.viewmodel.NoteViewModel
+import com.example.ui.viewmodel.EditorViewMode
 
 enum class AppScreen {
   LIST,
@@ -40,6 +43,7 @@ enum class AppScreen {
 class MainActivity : ComponentActivity() {
 
   private val viewModel: NoteViewModel by viewModels()
+  private val openImportedFile = mutableStateOf(false)
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
@@ -52,6 +56,14 @@ class MainActivity : ComponentActivity() {
       val themeMode by viewModel.themeMode.collectAsState()
       var currentScreen by remember { mutableStateOf(AppScreen.LIST) }
       var previousScreen by remember { mutableStateOf(AppScreen.LIST) }
+
+      LaunchedEffect(openImportedFile.value) {
+        if (openImportedFile.value) {
+          previousScreen = AppScreen.LIST
+          currentScreen = AppScreen.EDITOR
+          openImportedFile.value = false
+        }
+      }
 
       NocturneTheme(themeMode = themeMode) {
         Box(
@@ -125,6 +137,13 @@ class MainActivity : ComponentActivity() {
     handleIntent(intent)
   }
 
+  private fun importAndPreview(uri: Uri) {
+    viewModel.importDocumentFromUri(this, uri) {
+      viewModel.setViewMode(EditorViewMode.PREVIEW)
+      openImportedFile.value = true
+    }
+  }
+
   private fun handleIntent(intent: Intent?) {
     if (intent == null) return
     val action = intent.action
@@ -134,20 +153,21 @@ class MainActivity : ComponentActivity() {
       Intent.ACTION_VIEW -> {
         val uri: Uri? = intent.data
         if (uri != null) {
-          viewModel.importDocumentFromUri(this, uri)
+          importAndPreview(uri)
         }
       }
       Intent.ACTION_SEND -> {
-        if ("text/plain" == type) {
-          val sharedText = intent.getStringExtra(Intent.EXTRA_TEXT)
-          if (!sharedText.isNullOrBlank()) {
-            viewModel.pasteClipboardText(sharedText)
-          }
+        val sharedText = if (type == "text/plain") {
+          intent.getStringExtra(Intent.EXTRA_TEXT)
+        } else null
+
+        if (!sharedText.isNullOrBlank()) {
+          viewModel.pasteClipboardText(sharedText)
+          viewModel.setViewMode(EditorViewMode.PREVIEW)
+          openImportedFile.value = true
         } else {
-          val uri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
-          if (uri != null) {
-            viewModel.importDocumentFromUri(this, uri)
-          }
+          val uri = IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+          if (uri != null) importAndPreview(uri)
         }
       }
     }
