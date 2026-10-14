@@ -75,6 +75,7 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -100,6 +101,7 @@ fun EditorScreen(
   val context = LocalContext.current
 
   val editorState by viewModel.editorState.collectAsState()
+  val editorTextFieldValue by viewModel.editorTextFieldValue.collectAsState()
   val activeNoteVersions by viewModel.activeNoteVersions.collectAsState()
   val searchState by viewModel.editorSearch.collectAsState()
   val fontChoice by viewModel.fontChoice.collectAsState()
@@ -196,6 +198,7 @@ fun EditorScreen(
               onValueChange = { viewModel.updateTitle(it) },
               modifier = Modifier
                 .fillMaxWidth()
+                .padding(end = 8.dp)
                 .testTag("editor_title_input"),
               textStyle = MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.Bold,
@@ -233,24 +236,6 @@ fun EditorScreen(
             }
           },
           actions = {
-            // Elegant View Mode Pill
-            ViewModeSelector(
-              currentMode = editorState.viewMode,
-              onModeSelect = { viewModel.setViewMode(it) }
-            )
-
-            // Zen Focus Mode Toggle
-            IconButton(
-              onClick = { viewModel.toggleZenMode() },
-              modifier = Modifier.testTag("zen_mode_toggle_button")
-            ) {
-              Icon(
-                imageVector = Icons.Default.Fullscreen,
-                contentDescription = "Distraction-Free Zen Mode",
-                tint = MaterialTheme.colorScheme.primary
-              )
-            }
-
             // Quick Save Button with State Feedback
             IconButton(
               onClick = { viewModel.saveActiveNote() },
@@ -280,6 +265,16 @@ fun EditorScreen(
                 expanded = showMoreMenu,
                 onDismissRequest = { showMoreMenu = false }
               ) {
+                DropdownMenuItem(
+                  text = { Text("Distraction-Free Mode") },
+                  leadingIcon = {
+                    Icon(Icons.Default.Fullscreen, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                  },
+                  onClick = {
+                    showMoreMenu = false
+                    viewModel.toggleZenMode()
+                  }
+                )
                 DropdownMenuItem(
                   text = { Text("Version History") },
                   leadingIcon = {
@@ -365,12 +360,12 @@ fun EditorScreen(
           when (editorState.viewMode) {
             EditorViewMode.EDIT -> {
               EditorInputView(
-                content = editorState.content,
+                value = editorTextFieldValue,
                 fontSize = fontSize,
                 fontFamily = fontChoice.fontFamily,
                 showLineNumbers = showLineNumbers,
                 isZenMode = editorState.isZenMode,
-                onContentChange = { viewModel.updateContent(it) },
+                onValueChange = { viewModel.updateEditorTextFieldValue(it) },
                 modifier = Modifier.fillMaxSize()
               )
             }
@@ -387,12 +382,12 @@ fun EditorScreen(
             EditorViewMode.SPLIT -> {
               Row(modifier = Modifier.fillMaxSize()) {
                 EditorInputView(
-                  content = editorState.content,
+                  value = editorTextFieldValue,
                   fontSize = fontSize,
                   fontFamily = fontChoice.fontFamily,
                   showLineNumbers = showLineNumbers,
                   isZenMode = false,
-                  onContentChange = { viewModel.updateContent(it) },
+                  onValueChange = { viewModel.updateEditorTextFieldValue(it) },
                   modifier = Modifier
                     .weight(1f)
                     .fillMaxHeight()
@@ -433,23 +428,21 @@ fun EditorScreen(
             onHeading = { viewModel.insertHeading(it) },
             onCode = { viewModel.insertMarkdownSyntax("`", "`", "code") },
             onCodeBlock = { viewModel.insertMarkdownSyntax("```\n", "\n```", "code") },
-            onQuote = { viewModel.insertMarkdownSyntax("> ", placeholder = "Quote") },
+            onQuote = { viewModel.formatQuote() },
             onTable = { viewModel.insertTableTemplate() },
             onLink = { viewModel.insertMarkdownSyntax("[", "](https://)", "link text") },
-            onDivider = { viewModel.insertMarkdownSyntax("\n---\n") }
+            onDivider = { viewModel.insertMarkdownBlock("---") }
           )
         }
 
         // Status & Stats Bar (when not in Zen mode)
         if (!editorState.isZenMode) {
           EditorStatusBar(
+            currentMode = editorState.viewMode,
+            onModeSelect = { viewModel.setViewMode(it) },
             wordCount = editorState.wordCount,
-            charCount = editorState.charCount,
-            readingTimeMinutes = editorState.readingTimeMinutes,
             isSaved = editorState.isSaved,
-            autosaveStatus = lastAutosaveStatus,
-            onHistoryClick = { showVersionHistorySheet = true },
-            onSettingsClick = onOpenSettings
+            onZenClick = { viewModel.toggleZenMode() }
           )
         }
       }
@@ -639,15 +632,15 @@ private fun ViewModeSelector(
 
 @Composable
 private fun EditorInputView(
-  content: String,
+  value: TextFieldValue,
   fontSize: Int,
   fontFamily: FontFamily,
   showLineNumbers: Boolean,
   isZenMode: Boolean,
-  onContentChange: (String) -> Unit,
+  onValueChange: (TextFieldValue) -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val lines = remember(content) { content.lines() }
+  val lines = remember(value.text) { value.text.lines() }
 
   Row(
     modifier = modifier
@@ -682,8 +675,8 @@ private fun EditorInputView(
 
     // Main Text Input Area - fully responsive with correct horizontal bounds
     BasicTextField(
-      value = content,
-      onValueChange = onContentChange,
+      value = value,
+      onValueChange = onValueChange,
       modifier = Modifier
         // BasicTextField already scrolls its text; wrapping it in verticalScroll
         // adds an unbounded measurement pass during fullscreen relayout.
@@ -698,7 +691,7 @@ private fun EditorInputView(
       cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
       visualTransformation = KhmerFontVisualTransformation,
       decorationBox = { innerTextField ->
-        if (content.isEmpty()) {
+        if (value.text.isEmpty()) {
           Text(
             text = "Begin writing your thoughts in Markdown or plain text...\nTap Zen mode for distraction-free focus.",
             style = TextStyle(
@@ -717,94 +710,53 @@ private fun EditorInputView(
 
 @Composable
 private fun EditorStatusBar(
+  currentMode: EditorViewMode,
+  onModeSelect: (EditorViewMode) -> Unit,
   wordCount: Int,
-  charCount: Int,
-  readingTimeMinutes: Int,
   isSaved: Boolean,
-  autosaveStatus: String,
-  onHistoryClick: () -> Unit,
-  onSettingsClick: () -> Unit,
+  onZenClick: () -> Unit,
   modifier: Modifier = Modifier
 ) {
+  // Mode switching remains accessible without crowding the title input.
   Surface(
     modifier = modifier
       .fillMaxWidth()
-      .height(34.dp)
+      .height(42.dp)
       .testTag("editor_status_bar"),
     color = MaterialTheme.colorScheme.surface
   ) {
     Row(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 16.dp),
-      horizontalArrangement = Arrangement.SpaceBetween,
+        .padding(horizontal = 8.dp),
+      horizontalArrangement = Arrangement.spacedBy(6.dp),
       verticalAlignment = Alignment.CenterVertically
     ) {
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+      ViewModeSelector(currentMode = currentMode, onModeSelect = onModeSelect)
+      IconButton(
+        onClick = onZenClick,
+        modifier = Modifier.size(32.dp).testTag("zen_mode_toggle_button")
       ) {
-        Text(
-          text = "$wordCount words",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-          text = "•",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-        )
-        Text(
-          text = "$charCount chars",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-          text = "•",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-        )
-        Text(
-          text = "$readingTimeMinutes min read",
-          style = MaterialTheme.typography.labelSmall,
-          color = MaterialTheme.colorScheme.primary
+        Icon(
+          Icons.Default.Fullscreen,
+          contentDescription = "Distraction-Free Zen Mode",
+          modifier = Modifier.size(18.dp),
+          tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
       }
-
-      Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-      ) {
-        Text(
-          text = autosaveStatus,
-          style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-          color = if (isSaved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-        )
-
-        IconButton(
-          onClick = onHistoryClick,
-          modifier = Modifier.size(24.dp).testTag("status_bar_history_button")
-        ) {
-          Icon(
-            imageVector = Icons.Default.History,
-            contentDescription = "Version History",
-            modifier = Modifier.size(15.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-        }
-
-        IconButton(
-          onClick = onSettingsClick,
-          modifier = Modifier.size(24.dp).testTag("status_bar_settings_button")
-        ) {
-          Icon(
-            imageVector = Icons.Default.Settings,
-            contentDescription = "Settings",
-            modifier = Modifier.size(15.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant
-          )
-        }
-      }
+      Spacer(modifier = Modifier.weight(1f))
+      Text(
+        text = "$wordCount words",
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1
+      )
+      Text(
+        text = if (isSaved) "Saved" else "Unsaved",
+        style = MaterialTheme.typography.labelSmall,
+        color = if (isSaved) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1
+      )
     }
   }
 }
