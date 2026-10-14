@@ -60,7 +60,8 @@ class SpeechPlayerBarLayoutTest {
     val player = composeRule.onNodeWithTag("read_aloud_player").fetchSemanticsNode().boundsInRoot
     listOf("previous", "toggle", "next", "stop").forEach { control ->
       val node = composeRule.onNodeWithTag("read_aloud_$control")
-      node.assertIsDisplayed().assertWidthIsAtLeast(48.dp)
+      node.assertIsDisplayed()
+      node.assertWidthIsAtLeast(48.dp)
       val bounds = node.fetchSemanticsNode().boundsInRoot
       assertTrue("$control must fit entirely within the player", bounds.left >= player.left &&
         bounds.right <= player.right && bounds.top >= player.top && bounds.bottom <= player.bottom)

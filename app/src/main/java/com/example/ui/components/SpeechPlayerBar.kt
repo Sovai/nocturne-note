@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -147,16 +148,16 @@ fun SpeechPlayerBar(
         modifier = Modifier.fillMaxWidth()) {
         if (state.active) {
           IconButton(onClick = { onSkip(-1) },
-            modifier = Modifier.testTag("read_aloud_previous")) {
+            modifier = Modifier.size(48.dp).testTag("read_aloud_previous")) {
             Icon(Icons.Default.SkipPrevious, contentDescription = "Previous chunk")
           }
           IconButton(onClick = onToggle, enabled = !state.loading,
-            modifier = Modifier.testTag("read_aloud_toggle")) {
+            modifier = Modifier.size(48.dp).testTag("read_aloud_toggle")) {
             Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
               contentDescription = if (state.playing) "Pause" else "Resume")
           }
           IconButton(onClick = { onSkip(1) },
-            modifier = Modifier.testTag("read_aloud_next")) {
+            modifier = Modifier.size(48.dp).testTag("read_aloud_next")) {
             Icon(Icons.Default.SkipNext, contentDescription = "Next chunk")
           }
           Text(
@@ -168,7 +169,7 @@ fun SpeechPlayerBar(
             modifier = Modifier.weight(1f)
           )
         }
-        IconButton(onClick = onStop, modifier = Modifier.testTag("read_aloud_stop")) {
+        IconButton(onClick = onStop, modifier = Modifier.size(48.dp).testTag("read_aloud_stop")) {
           Icon(Icons.Default.Close, contentDescription = "Stop and close reader")
         }
       }

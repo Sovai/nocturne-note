@@ -152,3 +152,8 @@ android.sourceSets.getByName("main").jniLibs.srcDir(
 tasks.matching {
   it.name == "preBuild" || it.name.endsWith("JniLibFolders")
 }.configureEach { dependsOn(stageTokenizerCxxRuntime) }
+
+// Show the actual assertion and bounds when a JVM/UI regression check fails.
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+  testLogging.exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+}
