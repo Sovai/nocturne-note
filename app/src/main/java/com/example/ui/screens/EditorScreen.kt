@@ -22,10 +22,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.rememberScrollState
@@ -53,7 +51,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -141,7 +138,9 @@ fun EditorScreen(
   }
 
   Scaffold(
-    contentWindowInsets = if (editorState.isZenMode) WindowInsets(0, 0, 0, 0) else ScaffoldDefaults.contentWindowInsets,
+    // The activity already applies and consumes safe drawing insets. Keep Scaffold
+    // geometry stable when switching between regular and distraction-free modes.
+    contentWindowInsets = WindowInsets(0, 0, 0, 0),
     modifier = modifier
       .fillMaxSize()
       .onPreviewKeyEvent { event ->
@@ -332,15 +331,7 @@ fun EditorScreen(
     Box(
       modifier = Modifier
         .fillMaxSize()
-        .then(
-          if (editorState.isZenMode) {
-            Modifier
-              .statusBarsPadding()
-              .navigationBarsPadding()
-          } else {
-            Modifier.padding(paddingValues)
-          }
-        )
+        .padding(paddingValues)
         .imePadding()
     ) {
       Column(modifier = Modifier.fillMaxSize()) {
@@ -692,8 +683,9 @@ private fun EditorInputView(
       value = content,
       onValueChange = onContentChange,
       modifier = Modifier
+        // BasicTextField already scrolls its text; wrapping it in verticalScroll
+        // adds an unbounded measurement pass during fullscreen relayout.
         .fillMaxSize()
-        .verticalScroll(rememberScrollState())
         .testTag("editor_text_input"),
       textStyle = TextStyle(
         fontFamily = fontFamily,
