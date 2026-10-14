@@ -30,7 +30,9 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
 pip install omnivoice numpy soundfile
-python tools/omnivoice_server.py --host 0.0.0.0 --port 8765 --token "REPLACE_WITH_YOUR_OWN_RANDOM_SECRET_32_CHARACTERS"
+$token = python -c "import secrets; print(secrets.token_urlsafe(32))"
+Write-Host "OmniVoice token: $token"
+python tools/omnivoice_server.py --host 0.0.0.0 --port 8765 --token $token
 ```
 
 The first launch downloads the model to your **PC**, never to Android. Verify that installed CUDA/PyTorch versions match your GPU drivers (see official OmniVoice installation guide). Find your PC's LAN IP using `ipconfig`. Connect phone and PC to the same trusted Wi-Fi. In **Settings → Read Aloud**, select **OmniVoice (PC / Wi-Fi)**, enter `http://192.168.x.x:8765` and the same secret. Tap **Test OmniVoice connection**. Android supports only literal private IPv4 addresses for this unencrypted local connection.
