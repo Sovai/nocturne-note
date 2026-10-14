@@ -86,6 +86,7 @@ import com.example.ui.components.FindAndReplaceBar
 import com.example.ui.components.FormattingBar
 import com.example.ui.components.MarkdownPreviewView
 import com.example.ui.components.SpeechPlayerBar
+import com.example.ui.components.ReadAlongView
 import com.example.ui.components.VersionHistorySheet
 import com.example.ui.theme.KhmerFontVisualTransformation
 import com.example.ui.viewmodel.EditorViewMode
@@ -104,6 +105,7 @@ fun EditorScreen(
 
   val editorState by viewModel.editorState.collectAsState()
   val readAloudState by viewModel.readAloudState.collectAsState()
+  val speechPreferences by viewModel.speechPreferences.collectAsState()
   val editorTextFieldValue by viewModel.editorTextFieldValue.collectAsState()
   val activeNoteVersions by viewModel.activeNoteVersions.collectAsState()
   val searchState by viewModel.editorSearch.collectAsState()
@@ -138,6 +140,7 @@ fun EditorScreen(
         if (!editorState.isSaved && editorState.content.isNotBlank()) {
           viewModel.saveActiveNote()
         }
+        viewModel.stopReadAloud()
         onNavigateBack()
       }
     }
@@ -228,9 +231,11 @@ fun EditorScreen(
           navigationIcon = {
             IconButton(
               onClick = {
+                viewModel.stopReadAloud()
                 if (!editorState.isSaved && editorState.content.isNotBlank()) {
                   viewModel.saveActiveNote()
                 }
+                viewModel.stopReadAloud()
                 onNavigateBack()
               },
               modifier = Modifier.testTag("editor_back_button")
@@ -323,6 +328,7 @@ fun EditorScreen(
                   },
                   onClick = {
                     showMoreMenu = false
+                    viewModel.stopReadAloud()
                     onOpenSettings()
                   }
                 )
@@ -425,6 +431,9 @@ fun EditorScreen(
         if (readAloudState.active || readAloudState.error != null) {
           SpeechPlayerBar(
             state = readAloudState,
+            preferences = speechPreferences,
+            onEngine = { viewModel.setSpeechEngine(it) },
+            onSeek = { viewModel.seekReadAloudChunk(it) },
             onToggle = { viewModel.toggleReadAloud() },
             onStop = { viewModel.stopReadAloud() },
             onSkip = { viewModel.skipReadAloudParagraph(it) },
@@ -433,7 +442,7 @@ fun EditorScreen(
         }
 
         // Floating Accessory Formatting Bar (visible in Edit mode)
-        if (editorState.viewMode != EditorViewMode.PREVIEW && !editorState.isZenMode) {
+        if (!readAloudState.active && editorState.viewMode != EditorViewMode.PREVIEW && !editorState.isZenMode) {
           FormattingBar(
             canUndo = editorState.canUndo,
             canRedo = editorState.canRedo,
