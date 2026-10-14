@@ -7,6 +7,8 @@ plugins {
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
+  // Pinned NDK supplies the C++ shared runtime required by DJL tokenizer JNI.
+  ndkVersion = "27.2.12479018"
 
   defaultConfig {
     applicationId = "com.sovai.nocturnenote"
@@ -102,3 +104,33 @@ dependencies {
   debugImplementation(libs.androidx.compose.ui.tooling)
   add("ksp", libs.androidx.room.compiler)
 }
+
+
+// DJL's tokenizer-native AAR ships libdjl_tokenizer.so but does not package
+// its ELF dependency libc++_shared.so. Android cannot load the tokenizer
+// without a same-ABI NDK C++ runtime inside the APK. Copy it from the pinned
+// Android NDK at build time, rather than downloading untrusted binaries.
+val stageTokenizerCxxRuntime = tasks.register<Copy>("stageTokenizerCxxRuntime") {
+  val pinnedNdk = android.ndkVersion
+  val androidAbis = mapOf(
+    "armeabi-v7a" to "arm-linux-androideabi",
+    "arm64-v8a" to "aarch64-linux-android",
+    "x86" to "i686-linux-android",
+    "x86_64" to "x86_64-linux-android"
+  )
+  val runtimeRoot = providers.provider {
+    val root = android.sdkDirectory.resolve("ndk/$pinnedNdk/toolchains/llvm/prebuilt")
+    val host = root.listFiles()?.firstOrNull { it.isDirectory }
+      ?: throw GradleException("Android NDK $pinnedNdk is required to package OmniVoice tokenizer runtime")
+    host.resolve("sysroot/usr/lib")
+  }
+  androidAbis.forEach { (abi, triple) ->
+    from(runtimeRoot.map { root ->
+      root.resolve("$triple/libc++_shared.so").also { file ->
+        if (!file.isFile) throw GradleException("Missing NDK C++ runtime for $abi: $file")
+      }
+    }) { into(abi) }
+  }
+  into(layout.buildDirectory.dir("generated/native-tokenizer-runtime"))
+}
+android.sourceSets.getByName("main").jniLibs.srcDir(stageTokenizerCxxRuntime)
