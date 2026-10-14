@@ -713,7 +713,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
   // --- Document Import ---
 
-  fun importDocumentFromUri(context: Context, uri: Uri) {
+  fun importDocumentFromUri(context: Context, uri: Uri, onImported: (() -> Unit)? = null) {
     viewModelScope.launch(Dispatchers.IO) {
       try {
         val contentResolver = context.contentResolver
@@ -752,6 +752,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
             formatHint = hint
           )
           _userMessage.value = "Imported: $fileName"
+          onImported?.invoke()
         }
       } catch (e: Exception) {
         withContext(Dispatchers.Main) {
