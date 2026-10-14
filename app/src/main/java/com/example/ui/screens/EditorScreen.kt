@@ -446,6 +446,8 @@ fun EditorScreen(
             androidVoices = androidVoices,
             omniInstalled = omniVoiceModel.installed && android.os.Build.VERSION.SDK_INT >= 26,
             onAndroidVoice = { viewModel.setAndroidVoice(it) },
+            onEdgeVoice = { viewModel.setEdgeVoice(it) },
+            onEdgePitch = { viewModel.setEdgePitch(it) },
             onEngine = { viewModel.setSpeechEngine(it) },
             onSeek = { viewModel.seekReadAloudChunk(it) },
             onToggle = { viewModel.toggleReadAloud() },
