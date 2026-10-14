@@ -52,8 +52,8 @@ object SpokenMarkdown {
   fun paragraphs(markdown: String): List<String> {
     return markdown.replace(link, "$1").replace(heading, "").replace(style, "")
       .replace(tag, "").replace(url, "")
-      .split(Regex("""\n\s*\n|\n"""))
-      .map { it.trim().replace(Regex("""\s+"""), " ") }
+      .split(Regex("""\n\s*\n"""))
+      .map { it.trim().replace(Regex("""\s*\n\s*"""), " ").replace(Regex("""\s+"""), " ") }
       .filter { it.isNotBlank() && !it.startsWith("---") }
       .flatMap(::safeChunks)
   }
