@@ -237,7 +237,7 @@ class ReadAloudController(
       _state.value = _state.value.copy(active = true, loading = true,
         playing = false, paused = false, paragraph = index, error = null)
       var offline: OfflineTts? = null
-      var omni: OmniVoiceOnDeviceEngine? = null
+      var omni: OmniVoiceRemoteClient? = null
       var pending: kotlinx.coroutines.Deferred<Result<Generated>>? = null
 
       suspend fun render(chunk: String): Generated {
@@ -248,14 +248,13 @@ class ReadAloudController(
           if (android.os.Build.VERSION.SDK_INT < 26) {
             error("OmniVoice requires Android 8 or newer.")
           }
-          if (omni == null) omni = OmniVoiceOnDeviceEngine(omniModels.localModelDirectory,
-            threads = settings.mmsThreads)
+          if (omni == null) omni = OmniVoiceRemoteClient(context.applicationContext)
           val engine = requireNotNull(omni)
           val key = audioCache.key(chunk, settings.speed, false, "omnivoice-onnx-int4-v1")
           withContext(Dispatchers.IO) { audioCache.get(key) }?.let {
             return Generated(it, "OmniVoice ONNX · cached")
           }
-          val audio = withContext(Dispatchers.Default) { engine.synthesize(chunk) }
+          val audio = engine.synthesize(chunk)
           currentCoroutineContext().ensureActive()
           withContext(Dispatchers.IO) { runCatching { audioCache.put(key, audio) } }
           return Generated(audio, "OmniVoice ONNX · local")
