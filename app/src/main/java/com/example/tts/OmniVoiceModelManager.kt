@@ -37,14 +37,22 @@ class OmniVoiceModelManager(context: Context) {
 
   private fun catalog(): List<Asset>? {
     val text = runCatching {
-      val connection = (URL("https://raw.githubusercontent.com/Sovai/-nocturne-note-models/main/catalog.json")
-        .openConnection() as HttpURLConnection).apply {
-        connectTimeout = 10_000; readTimeout = 10_000
-      }
-      try {
-        check(connection.responseCode == 200) { "Model catalog unavailable" }
-        connection.inputStream.bufferedReader().use { it.readText() }
-      } finally { connection.disconnect() }
+      val sources = listOf(
+        "https://raw.githubusercontent.com/Sovai/-nocturne-note-models/main/catalog.json",
+        "https://raw.githubusercontent.com/Sovai/nocturne-note-models/main/catalog.json"
+      )
+      sources.firstNotNullOfOrNull { source ->
+        runCatching {
+          val conn = (URL(source).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 6000
+            readTimeout = 6000
+          }
+          try {
+            check(conn.responseCode == 200)
+            conn.inputStream.bufferedReader().use { it.readText() }
+          } finally { conn.disconnect() }
+        }.getOrNull()
+      } ?: error("Model catalog unavailable")
     }.getOrElse {
       cachedCatalog.takeIf { it.isFile }?.readText()
         ?: throw IllegalStateException("Offline: no cached model catalog", it)
