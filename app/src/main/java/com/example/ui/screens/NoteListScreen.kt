@@ -1,6 +1,9 @@
 package com.example.ui.screens
 
 import android.net.Uri
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -117,18 +120,11 @@ fun NoteListScreen(
       TopAppBar(
         title = {
           Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(
-              modifier = Modifier
-                .size(34.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-              contentAlignment = Alignment.Center
-            ) {
-              Text(
-                text = "🌙",
-                fontSize = 17.sp
-              )
-            }
+            Image(
+              painter = painterResource(R.drawable.nocturnenote_logo_image),
+              contentDescription = "NocturneNote",
+              modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp))
+            )
             Spacer(modifier = Modifier.width(10.dp))
             Column {
               Text(
