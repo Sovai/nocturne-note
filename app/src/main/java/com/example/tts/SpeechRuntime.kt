@@ -100,7 +100,7 @@ object SpeechRuntime {
       if (Build.VERSION.SDK_INT < 26 || !omniModels.state.value.installed) return
     }
     settings.engine(engine)
-    if (controller.state.value.active) controller.skip(0)
+    if (controller.state.value.active) controller.restartForNewEngine()
   }
 
   fun stop() {
