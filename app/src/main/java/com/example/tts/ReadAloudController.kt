@@ -128,6 +128,7 @@ class ReadAloudController(
     if (!ttsReady.isCompleted) ttsReady.complete(result == TextToSpeech.SUCCESS)
   }
   private val resumePrefs = context.applicationContext.getSharedPreferences("nocturne_reader_position", Context.MODE_PRIVATE)
+  private val audioCache = SpeechChunkCache(context.applicationContext)
   private val _state = MutableStateFlow(ReadAloudState(speed = preferences.state.value.speed))
   val state = _state.asStateFlow()
   private val _availableAndroidVoices = MutableStateFlow<List<String>>(emptyList())
@@ -229,13 +230,17 @@ class ReadAloudController(
           error("On-device OmniVoice ONNX is not yet validated. Choose MMS or Android TTS.")
         }
         if (preferMms(settings, chunk)) {
+          val key = audioCache.key(chunk, settings.speed, settings.mmsTrimSilence)
+          withContext(Dispatchers.IO) { audioCache.get(key) }?.let {
+            return Generated(it, "Khmer MMS · cached")
+          }
           try {
             if (offline == null) offline = withContext(Dispatchers.IO) {
               OfflineTts(config = OfflineTtsConfig(
                 model = OfflineTtsModelConfig(
                   vits = OfflineTtsVitsModelConfig(
                     model = modelManager.modelPath, tokens = modelManager.tokensPath),
-                  numThreads = 2
+                  numThreads = settings.mmsThreads
                 )
               ))
             }
@@ -244,12 +249,20 @@ class ReadAloudController(
               model.generate(text = chunk, speed = settings.speed)
             }
             currentCoroutineContext().ensureActive()
-            return Generated(SpeechAudio(audio.samples, audio.sampleRate), "Khmer MMS")
+            val speech = SpeechAudio(audio.samples, audio.sampleRate)
+            val processed = if (settings.mmsTrimSilence) trimSpeechSilence(speech) else speech
+            withContext(Dispatchers.IO) { runCatching { audioCache.put(key, processed) } }
+            return Generated(processed, "Khmer MMS")
           } catch (e: CancellationException) { throw e }
           catch (e: Throwable) {
             currentCoroutineContext().ensureActive()
             withContext(NonCancellable + Dispatchers.IO) { runCatching { offline?.release() } }
             offline = null
+            // Do not silently change voice engines on an MMS error.
+            if (settings.engine == SpeechEngine.MMS) {
+              throw IllegalStateException("MMS synthesis failed: " +
+                (e.message ?: e.javaClass.simpleName), e)
+            }
           }
         }
         return Generated(null, "Android TTS")
@@ -275,6 +288,16 @@ class ReadAloudController(
             _state.value = _state.value.copy(engine = current.engine, playing = true,
               loading = false, paused = false)
             playSamples(current.samples)
+            if (i < paragraphs.lastIndex && settings.mmsPauseMs > 0) {
+              var remaining = settings.mmsPauseMs.toLong()
+              while (remaining > 0) {
+                currentCoroutineContext().ensureActive()
+                if (_state.value.paused) { delay(35); continue }
+                val step = minOf(remaining, 20L)
+                delay(step)
+                remaining -= step
+              }
+            }
           } else {
             // Native Android TTS cannot prefetch PCM and does its own queue.
             pending?.cancel()
