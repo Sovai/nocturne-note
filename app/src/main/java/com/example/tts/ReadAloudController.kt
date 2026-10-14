@@ -53,13 +53,13 @@ object SpokenMarkdown {
   private val style = Regex("""(\*\*|__|~~|\*|_)""")
   private val tag = Regex("""<[^>]*>""")
   private val url = Regex("""https?://\S+""")
-  fun paragraphs(markdown: String): List<String> {
+  fun paragraphs(markdown: String, maxChars: Int = 260): List<String> {
     return markdown.replace(link, "$1").replace(heading, "").replace(style, "")
       .replace(tag, "").replace(url, "")
       .split(Regex("""\n\s*\n"""))
       .map { it.trim().replace(Regex("""\s*\n\s*"""), " ").replace(Regex("""\s+"""), " ") }
       .filter { it.isNotBlank() && !it.startsWith("---") }
-      .flatMap(::safeChunks)
+      .flatMap { safeChunks(it, maxChars) }
   }
 
   /**
@@ -82,8 +82,7 @@ object SpokenMarkdown {
     return true
   }
 
-  private fun safeChunks(text: String): List<String> {
-    val maxLength = 260
+  private fun safeChunks(text: String, maxLength: Int): List<String> {
     if (text.length <= maxLength) return listOf(text)
     val result = mutableListOf<String>()
     var start = 0
@@ -120,6 +119,7 @@ object SpokenMarkdown {
 class ReadAloudController(
   context: Context,
   private val modelManager: KhmerModelManager,
+  private val omniModels: OmniVoiceModelManager,
   private val preferences: SpeechSettingsStore
 ) {
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
@@ -158,7 +158,8 @@ class ReadAloudController(
     stop()
     noteId = currentNoteId
     contentSignature = markdown.hashCode()
-    paragraphs = SpokenMarkdown.paragraphs(markdown)
+    paragraphs = SpokenMarkdown.paragraphs(markdown,
+      if (preferences.state.value.engine == SpeechEngine.OMNIVOICE) 80 else 260)
     if (paragraphs.isEmpty()) return
     val saved = if (noteId > 0 && resumePrefs.getInt("hash_$noteId", 0) == contentSignature)
       resumePrefs.getInt("chunk_$noteId", 0) else 0
@@ -223,11 +224,23 @@ class ReadAloudController(
       _state.value = _state.value.copy(active = true, loading = true,
         playing = false, paused = false, paragraph = index, error = null)
       var offline: OfflineTts? = null
+      var omni: OmniVoiceOnDeviceEngine? = null
       var pending: kotlinx.coroutines.Deferred<Result<Generated>>? = null
 
       suspend fun render(chunk: String): Generated {
         if (settings.engine == SpeechEngine.OMNIVOICE) {
-          error("On-device OmniVoice ONNX is not yet validated. Choose MMS or Android TTS.")
+          check(omniModels.state.value.installed) {
+            "Download the OmniVoice ONNX model in Settings first."
+          }
+          if (android.os.Build.VERSION.SDK_INT < 26) {
+            error("OmniVoice requires Android 8 or newer.")
+          }
+          if (omni == null) omni = OmniVoiceOnDeviceEngine(omniModels.localModelDirectory,
+            threads = settings.mmsThreads)
+          val engine = requireNotNull(omni)
+          val audio = withContext(Dispatchers.Default) { engine.synthesize(chunk) }
+          currentCoroutineContext().ensureActive()
+          return Generated(audio, "OmniVoice ONNX · local")
         }
         if (preferMms(settings, chunk)) {
           val key = audioCache.key(chunk, settings.speed, settings.mmsTrimSilence)
@@ -318,7 +331,10 @@ class ReadAloudController(
         // its native model. Cancellation alone cannot interrupt generate().
         withContext(NonCancellable) {
           pending?.cancelAndJoin()
-          withContext(Dispatchers.IO) { runCatching { offline?.release() } }
+          withContext(Dispatchers.IO) {
+            runCatching { offline?.release() }
+            runCatching { omni?.close() }
+          }
         }
         if (generation == playbackGeneration) closeTrack()
       }
