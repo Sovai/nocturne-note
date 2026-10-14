@@ -57,6 +57,7 @@ class SpeechPlaybackService : Service() {
     scope.launch {
       SpeechRuntime.controller.state.collectLatest { state ->
         if (!state.active) {
+          SpeechRuntime.releaseFocus()
           stopForeground(STOP_FOREGROUND_REMOVE)
           stopSelf()
         } else {
