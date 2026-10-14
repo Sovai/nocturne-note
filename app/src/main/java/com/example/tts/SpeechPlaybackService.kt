@@ -42,8 +42,10 @@ class SpeechPlaybackService : Service() {
     super.onCreate()
     SpeechRuntime.initialize(applicationContext)
     manager = getSystemService(NotificationManager::class.java)
-    manager.createNotificationChannel(NotificationChannel(CHANNEL, "Read Aloud",
-      NotificationManager.IMPORTANCE_LOW))
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      manager.createNotificationChannel(NotificationChannel(CHANNEL, "Read Aloud",
+        NotificationManager.IMPORTANCE_LOW))
+    }
     session = MediaSession(this, "Nocturne Note reader").apply {
       setCallback(object : MediaSession.Callback() {
         override fun onPlay() = SpeechRuntime.toggle()
@@ -80,8 +82,12 @@ class SpeechPlaybackService : Service() {
   private fun notification(state: ReadAloudState): Notification {
     val open = PendingIntent.getActivity(this, 1, Intent(this, MainActivity::class.java)
       .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-    val builder = Notification.Builder(this, CHANNEL)
-      .setSmallIcon(R.mipmap.ic_launcher)
+    val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+      Notification.Builder(this, CHANNEL) else {
+      @Suppress("DEPRECATION")
+      Notification.Builder(this)
+    }
+    builder.setSmallIcon(R.mipmap.ic_launcher)
       .setContentTitle("Nocturne Note · Read Aloud")
       .setContentText(if (state.loading) "Preparing speech" else
         state.engine + " · " + (state.paragraph + 1) + "/" + state.totalParagraphs)
