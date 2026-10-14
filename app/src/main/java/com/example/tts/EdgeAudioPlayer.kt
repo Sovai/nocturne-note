@@ -15,11 +15,13 @@ import kotlin.coroutines.resumeWithException
 class EdgeAudioPlayer : AutoCloseable {
   @Volatile private var player: MediaPlayer? = null
   @Volatile private var paused = false
+  @Volatile private var finished = false
 
   suspend fun play(audio: ByteArray) = withContext(Dispatchers.Main.immediate) {
     require(audio.size in 100..(2*1024*1024)) { "Invalid Edge audio" }
     close()
     paused = false
+    finished = false
     suspendCancellableCoroutine<Unit> { cont ->
       val media = MediaPlayer()
       player = media
@@ -42,6 +44,7 @@ class EdgeAudioPlayer : AutoCloseable {
             .onFailure { ex -> cont.resumeWithException(ex) }
         }
         media.setOnCompletionListener {
+          finished = true
           if (cont.isActive) cont.resume(Unit)
         }
         media.setOnErrorListener { _, what, extra ->
@@ -60,17 +63,18 @@ class EdgeAudioPlayer : AutoCloseable {
 
   fun pause() {
     paused = true
-    player?.let { runCatching { if (it.isPlaying) it.pause() } }
+    if (!finished) player?.let { runCatching { if (it.isPlaying) it.pause() } }
   }
 
   fun resume() {
     paused = false
-    player?.let { runCatching { if (!it.isPlaying) it.start() } }
+    if (!finished) player?.let { runCatching { if (!it.isPlaying) it.start() } }
   }
 
   override fun close() {
     player?.let { runCatching { it.release() } }
     player = null
     paused = false
+    finished = false
   }
 }
