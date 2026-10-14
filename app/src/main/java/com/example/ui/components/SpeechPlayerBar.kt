@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.tts.EdgeTtsClient
 import com.example.tts.ReadAloudState
 import com.example.tts.SpeechEngine
 import com.example.tts.SpeechPreferences
@@ -53,6 +54,8 @@ fun SpeechPlayerBar(
   onSpeed: (Float) -> Unit,
   onEngine: (SpeechEngine) -> Unit,
   onAndroidVoice: (String) -> Unit,
+  onEdgeVoice: (String) -> Unit,
+  onEdgePitch: (Int) -> Unit,
   onMmsTrim: (Boolean) -> Unit,
   onMmsPause: (Int) -> Unit,
   onMmsThreads: (Int) -> Unit
@@ -61,6 +64,7 @@ fun SpeechPlayerBar(
   var modelMenu by remember { mutableStateOf(false) }
   var voiceMenu by remember { mutableStateOf(false) }
   var mmsOptions by remember { mutableStateOf(false) }
+  var edgeOptions by remember { mutableStateOf(false) }
   var seeking by remember { mutableStateOf<Float?>(null) }
   Surface(color = MaterialTheme.colorScheme.surfaceContainerHigh,
     modifier = Modifier.fillMaxWidth().testTag("read_aloud_player")) {
@@ -115,6 +119,12 @@ fun SpeechPlayerBar(
               }
             }
           }
+          if (preferences.engine == SpeechEngine.EDGE) {
+            IconButton(onClick = { edgeOptions = true },
+              modifier = Modifier.testTag("edge_player_settings")) {
+              Icon(Icons.Default.Settings, contentDescription = "Edge Khmer voices and pitch")
+            }
+          }
           if (preferences.engine == SpeechEngine.MMS ||
             (preferences.engine == SpeechEngine.AUTO && state.engine.startsWith("Khmer MMS"))) {
             IconButton(onClick = { mmsOptions = true }, modifier = Modifier.testTag("mms_player_settings")) {
@@ -147,6 +157,27 @@ fun SpeechPlayerBar(
       }
     }
   }
+  if (edgeOptions) AlertDialog(
+    onDismissRequest = { edgeOptions = false },
+    title = { Text("Edge Read Aloud · online") },
+    text = {
+      Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Text("Khmer voice")
+        listOf(EdgeTtsClient.PISETH to "Piseth · Male",
+          EdgeTtsClient.SREYMOM to "Sreymom · Female").forEach { (id, label) ->
+          androidx.compose.material3.FilterChip(
+            selected = preferences.edgeVoice == id,
+            onClick = { onEdgeVoice(id) }, label = { Text(label) })
+        }
+        Text("Pitch · ${preferences.edgePitchHz} Hz")
+        Slider(value = preferences.edgePitchHz.toFloat(),
+          onValueChange = { onEdgePitch(it.toInt()) }, valueRange = -40f..40f)
+        Text("Internet required. Sends selected passage to Microsoft.",
+          style = MaterialTheme.typography.bodySmall)
+      }
+    },
+    confirmButton = { TextButton(onClick = { edgeOptions = false }) { Text("Done") } }
+  )
   if (mmsOptions) AlertDialog(
     onDismissRequest = { mmsOptions = false },
     title = { Text("MMS playback settings") },
