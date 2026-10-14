@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.Fullscreen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Preview
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VerticalSplit
@@ -84,6 +85,8 @@ import com.example.ui.components.ExportDialog
 import com.example.ui.components.FindAndReplaceBar
 import com.example.ui.components.FormattingBar
 import com.example.ui.components.MarkdownPreviewView
+import com.example.ui.components.SpeechPlayerBar
+import com.example.ui.components.ReadAlongView
 import com.example.ui.components.VersionHistorySheet
 import com.example.ui.theme.KhmerFontVisualTransformation
 import com.example.ui.viewmodel.EditorViewMode
@@ -101,6 +104,10 @@ fun EditorScreen(
   val context = LocalContext.current
 
   val editorState by viewModel.editorState.collectAsState()
+  val readAloudState by viewModel.readAloudState.collectAsState()
+  val speechPreferences by viewModel.speechPreferences.collectAsState()
+  val androidVoices by viewModel.availableAndroidVoices.collectAsState()
+  val omniVoiceModel by viewModel.omniVoiceModelState.collectAsState()
   val editorTextFieldValue by viewModel.editorTextFieldValue.collectAsState()
   val activeNoteVersions by viewModel.activeNoteVersions.collectAsState()
   val searchState by viewModel.editorSearch.collectAsState()
@@ -135,6 +142,7 @@ fun EditorScreen(
         if (!editorState.isSaved && editorState.content.isNotBlank()) {
           viewModel.saveActiveNote()
         }
+        viewModel.stopReadAloud()
         onNavigateBack()
       }
     }
@@ -225,9 +233,11 @@ fun EditorScreen(
           navigationIcon = {
             IconButton(
               onClick = {
+                viewModel.stopReadAloud()
                 if (!editorState.isSaved && editorState.content.isNotBlank()) {
                   viewModel.saveActiveNote()
                 }
+                viewModel.stopReadAloud()
                 onNavigateBack()
               },
               modifier = Modifier.testTag("editor_back_button")
@@ -236,6 +246,14 @@ fun EditorScreen(
             }
           },
           actions = {
+            IconButton(
+              onClick = { viewModel.startReadAloud() },
+              modifier = Modifier.testTag("editor_read_aloud_button")
+            ) {
+              Icon(Icons.Default.RecordVoiceOver, contentDescription = "Read selected text or note",
+                tint = MaterialTheme.colorScheme.primary)
+            }
+
             // Quick Save Button with State Feedback
             IconButton(
               onClick = { viewModel.saveActiveNote() },
@@ -312,6 +330,7 @@ fun EditorScreen(
                   },
                   onClick = {
                     showMoreMenu = false
+                    viewModel.stopReadAloud()
                     onOpenSettings()
                   }
                 )
@@ -357,7 +376,16 @@ fun EditorScreen(
             .weight(1f)
             .fillMaxWidth()
         ) {
-          when (editorState.viewMode) {
+          if (readAloudState.active) {
+            ReadAlongView(
+              chunks = readAloudState.chunks,
+              currentIndex = readAloudState.paragraph,
+              fontSize = fontSize,
+              fontFamily = fontChoice.fontFamily,
+              onSeek = { viewModel.seekReadAloudChunk(it) },
+              modifier = Modifier.fillMaxSize()
+            )
+          } else when (editorState.viewMode) {
             EditorViewMode.EDIT -> {
               EditorInputView(
                 value = editorTextFieldValue,
@@ -411,8 +439,29 @@ fun EditorScreen(
           }
         }
 
+        if (readAloudState.active || readAloudState.error != null) {
+          SpeechPlayerBar(
+            state = readAloudState,
+            preferences = speechPreferences,
+            androidVoices = androidVoices,
+            omniInstalled = omniVoiceModel.installed && android.os.Build.VERSION.SDK_INT >= 26,
+            onAndroidVoice = { viewModel.setAndroidVoice(it) },
+            onEdgeVoice = { viewModel.setEdgeVoice(it) },
+            onEdgePitch = { viewModel.setEdgePitch(it) },
+            onEngine = { viewModel.setSpeechEngine(it) },
+            onSeek = { viewModel.seekReadAloudChunk(it) },
+            onToggle = { viewModel.toggleReadAloud() },
+            onStop = { viewModel.stopReadAloud() },
+            onSkip = { viewModel.skipReadAloudParagraph(it) },
+            onSpeed = { viewModel.setReadAloudSpeed(it) },
+            onMmsTrim = { viewModel.setMmsTrimSilence(it) },
+            onMmsPause = { viewModel.setMmsPauseMs(it) },
+            onMmsThreads = { viewModel.setMmsThreads(it) }
+          )
+        }
+
         // Floating Accessory Formatting Bar (visible in Edit mode)
-        if (editorState.viewMode != EditorViewMode.PREVIEW && !editorState.isZenMode) {
+        if (!readAloudState.active && editorState.viewMode != EditorViewMode.PREVIEW && !editorState.isZenMode) {
           FormattingBar(
             canUndo = editorState.canUndo,
             canRedo = editorState.canRedo,

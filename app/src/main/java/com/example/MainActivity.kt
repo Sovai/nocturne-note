@@ -41,6 +41,7 @@ import com.example.ui.screens.SettingsScreen
 import com.example.ui.theme.NocturneTheme
 import com.example.ui.viewmodel.NoteViewModel
 import com.example.ui.viewmodel.EditorViewMode
+import com.example.tts.SpeechRuntime
 
 enum class AppScreen {
   LIST,
@@ -55,6 +56,7 @@ class MainActivity : ComponentActivity() {
 
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
+    SpeechRuntime.initialize(applicationContext)
     enableEdgeToEdge()
 
     // Handle incoming file/text intent (VIEW / SEND)
@@ -133,6 +135,7 @@ class MainActivity : ComponentActivity() {
                 EditorScreen(
                   viewModel = viewModel,
                   onNavigateBack = {
+                    viewModel.stopReadAloud()
                     currentScreen = AppScreen.LIST
                   },
                   onOpenSettings = {
@@ -160,6 +163,11 @@ class MainActivity : ComponentActivity() {
         }
       }
     }
+  }
+
+  override fun onStop() {
+    super.onStop()
+    SpeechRuntime.onActivityBackgrounded()
   }
 
   override fun onNewIntent(intent: Intent) {
