@@ -47,6 +47,29 @@ jobs:
       - name: Verify APK application ID
         run: |
           "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep -F "package: name='com.sovai.nocturnenote'"
+
+      # Build the release variant only on a manual workflow run or a
+      # specifically marked main-branch merge, avoiding duplicate CI builds.
+      - name: Build installable internal release APK
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]'))
+        run: gradle --no-daemon -PnocturneInternalRelease=true :app:assembleRelease
+      - name: Verify internal release signing and version
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]'))
+        run: |
+          apk="app/build/outputs/apk/release/app-release.apk"
+          test -s "$apk"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "$apk" | tee /tmp/internal-release-signing.txt
+          grep -Fi "6446ac0d787a955685c8c121c59648942c32220d9fe6634ded0bd3a0aed26370" /tmp/internal-release-signing.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt" dump badging "$apk" | grep -F "package: name='com.sovai.nocturnenote' versionCode='6' versionName='1.0.5'"
+      - name: Upload installable internal release APK
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]'))
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nocturne-Note-v1.0.5-internal-release
+          path: app/build/outputs/apk/release/app-release.apk
+          retention-days: 30
+          if-no-files-found: error
+
       - name: Upload debug APK
         if: success()
         uses: actions/upload-artifact@v4
