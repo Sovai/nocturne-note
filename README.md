@@ -21,30 +21,33 @@ The editor supports **Read Aloud** for the current document or highlighted text 
 The voice is the Khmer Meta MMS model converted to ONNX by [willwade](https://huggingface.co/willwade/mms-tts-multilingual-models-onnx), used locally through [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx). **Model license is CC BY-NC 4.0: noncommercial use only.** The model is not bundled in APKs; if commercial app distribution is planned, obtain appropriate model rights or replace the model. Deleting the downloaded model does not delete notes.
 
 
-### Higher-quality OmniVoice on your PC (no subscription)
+### On-device model support (no PC, no external speech service)
 
-OmniVoice needs a Python/PyTorch host; it is **not** currently a downloadable Android ONNX model. The optional LAN bridge is in tools/omnivoice_server.py. Use an NVIDIA GPU for practical performance. On Windows, from a PowerShell session in the repository:
+- Android TTS: free fallback, using installed Khmer/English voices.
+- MMS Khmer: optional ~100 MB ONNX model, available for download/delete in Settings; known limitations in Khmer intelligibility.
+- OmniVoice ONNX: phone-only experimental candidate. **Model catalog/downloader is implemented, but full Android inference is not yet validated, and OmniVoice is disabled for playback until then.** No PC server and no paid API are used.
+- Model registry: https://github.com/Sovai/-nocturne-note-models
+- The model repository currently contains a catalog and a manual workflow for release mirroring; do not claim it already hosts weights. The app prefers verified GitHub Release assets for MMS when published and falls back to the existing upstream location in the meantime.
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
-pip install omnivoice numpy soundfile
-$token = python -c "import secrets; print(secrets.token_urlsafe(32))"
-Write-Host "OmniVoice token: $token"
-python tools/omnivoice_server.py --host 0.0.0.0 --port 8765 --token $token
-```
+#### Why mobile OmniVoice is not marked playable yet
 
-The first launch downloads the model to your **PC**, never to Android. Verify that installed CUDA/PyTorch versions match your GPU drivers (see official OmniVoice installation guide). Find your PC's LAN IP using `ipconfig`. Connect phone and PC to the same trusted Wi-Fi. In **Settings → Read Aloud**, select **OmniVoice (PC / Wi-Fi)**, enter `http://192.168.x.x:8765` and the same secret. Tap **Test OmniVoice connection**. Android supports only literal private IPv4 addresses for this unencrypted local connection.
+The ONNX-Community conversion is a Qwen3-based 32-step unmasking system with several ONNX subgraphs and the Higgs audio codec. ONNX Runtime can execute the graphs, but running an isolated ONNX session is **not** an end-to-end Khmer speech engine. A mobile port still requires Qwen tokenizer logic, iterative 8-codebook decoding, accurate codec synthesis, audio buffers, lifecycle and cancellation, and device profiling.
 
-**Optional consistent Khmer voice:** provide a 3–10 second Khmer speaker recording you have permission to use and its exact Khmer transcript. Add `--reference-wav "C:\path\reference.wav" --reference-text "..." ` to the server command. It creates a reusable prompt at server startup and uses it for subsequent requests. Without a reference, choose Automatic / Male / Female / Older male / Soft female; voice design was trained primarily on English/Chinese and may produce inconsistent Khmer. These options do not change MMS: MMS has only one speaker.
+Candidate INT4 artifacts total roughly 758 MB, not counting runtime overhead or extra files. Physical Android testing of RAM, synthesis speed and quality must pass before enabling the OmniVoice model in the player.
 
-**Security:** do not expose port 8765 to the public internet. The server requires a long token; HTTP on LAN is not encrypted. Note text leaves the phone for the locally configured PC during synthesis, but no paid cloud TTS is used. Do not use untrusted Wi-Fi or port-forward the server. Access token preferences are excluded from Android backup.
+Reference: https://huggingface.co/onnx-community/OmniVoice-Onnx
 
-**Licensing:** the OmniVoice code is Apache-2.0, but the pretrained weights are CC BY-NC, restricting commercial use. Confirm model rights before monetizing synthesized outputs. Meta MMS checkpoint is CC BY-NC 4.0 (noncommercial). No voice models are bundled into the APK.
+#### Reading UX
 
-**Performance:** the reader pre-generates the next chunk while playing the current one. First-chunk synthesis still incurs latency and low-powered computers can have gaps. Voice speed is adjustable between 0.75× and 1.5×. Voice style changes apply to the next reading session.
+- A Read Aloud session temporarily switches the editor/preview body to a virtualized reading view, highlights the currently playing chunk, scrolls it into view, and permits tapping any chunk to play from there.
+- Mini-player has a progress seek slider, engine selection and speed; only installed Android fallback voices can be selected currently. MMS has one voice.
+- Position is persisted per saved note, unless the note's text has changed; the next Read Aloud begins at the saved chunk. When reading finishes, progress resets. On explicit stop the chunk list disappears and normal note preview returns.
+- Playback prefetches the next chunk; pause and focus loss pause audio rather than triggering model fallback.
+- Background playback is opt-in under Settings. It uses an Android media foreground service with lock-screen/notification controls and audio focus. Leaving the note itself always stops playback. Without the option, leaving the app also stops playback.
 
+#### Licenses and privacy
+
+Meta MMS weights: CC BY-NC 4.0 (noncommercial). OmniVoice (k2-fsa) and the onnx-community conversion declare Apache-2.0; check each component and any future model assets individually before commercial redistribution. Voice models are not bundled into the APK. Normal reading is entirely local; internet is only used for optional model catalog/downloads.
 
 ## Build
 
