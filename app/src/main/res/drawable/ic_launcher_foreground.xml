@@ -1,0 +1,48 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Crescent Moon Accent (Top Right) -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M68,30 A10,10 0 1,1 58,40 A7.5,7.5 0 0,0 68,30 Z" />
+
+    <!-- Document Body -->
+    <path
+        android:fillColor="#E2E8F0"
+        android:pathData="M34,31 C34,29 35.5,27.5 37.5,27.5 L57,27.5 L69,39.5 L69,76.5 C69,78.5 67.5,80 65.5,80 L37.5,80 C35.5,80 34,78.5 34,76.5 Z" />
+
+    <!-- Folded Corner Shadow & Fold -->
+    <path
+        android:fillColor="#94A3B8"
+        android:pathData="M56,27.5 L56,39.5 L69,39.5 Z" />
+    <path
+        android:fillColor="#CBD5E1"
+        android:pathData="M56,27.5 L69,39.5 L56,39.5 Z" />
+
+    <!-- Document Text Lines -->
+    <path
+        android:fillColor="#64748B"
+        android:pathData="M40,46 H54 V48.5 H40 Z" />
+    <path
+        android:fillColor="#64748B"
+        android:pathData="M40,53 H63 V55.5 H40 Z" />
+    <path
+        android:fillColor="#64748B"
+        android:pathData="M40,60 H60 V62.5 H40 Z" />
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M40,67 H52 V69.5 H40 Z" />
+
+    <!-- Sleek Stylus / Nib Pen in action -->
+    <path
+        android:fillColor="#818CF8"
+        android:pathData="M65,58 L74,67 L70,71 L61,62 Z" />
+    <path
+        android:fillColor="#C7D2FE"
+        android:pathData="M61,62 L57,75 L70,71 Z" />
+    <path
+        android:fillColor="#1E1B4B"
+        android:pathData="M57,75 L59,71 L61,73 Z" />
+</vector>

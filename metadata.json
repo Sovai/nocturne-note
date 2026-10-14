@@ -1,0 +1,6 @@
+{
+  "name": "NocturneNote",
+  "description": "Distraction-free text and markdown editor with document import, full-screen preview, and multi-format export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
