@@ -92,7 +92,15 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   private val _themeMode = MutableStateFlow(AppThemeMode.LIGHT_SOLAR)
   val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
 
-  private val _fontChoice = MutableStateFlow(EditorFontChoice.SANS)
+  private val fontPreferences = application.getSharedPreferences("nocturnenote_typography", android.content.Context.MODE_PRIVATE)
+  private val _fontChoice = MutableStateFlow(
+    runCatching {
+      EditorFontChoice.valueOf(
+        fontPreferences.getString("editor_font", EditorFontChoice.NOTO_SERIF_KHMER.name)
+          ?: EditorFontChoice.NOTO_SERIF_KHMER.name
+      )
+    }.getOrDefault(EditorFontChoice.NOTO_SERIF_KHMER)
+  )
   val fontChoice: StateFlow<EditorFontChoice> = _fontChoice.asStateFlow()
 
   private val _fontSize = MutableStateFlow(16)
@@ -195,6 +203,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   }
 
   fun setFontChoice(choice: EditorFontChoice) {
+    fontPreferences.edit().putString("editor_font", choice.name).apply()
     _fontChoice.value = choice
   }
 
