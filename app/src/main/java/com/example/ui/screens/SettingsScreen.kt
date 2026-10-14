@@ -79,6 +79,7 @@ fun SettingsScreen(
   val allNotes by viewModel.allNotes.collectAsState()
   val speechModel by viewModel.speechModelState.collectAsState()
   val speechSettings by viewModel.speechPreferences.collectAsState()
+  val androidVoices by viewModel.availableAndroidVoices.collectAsState()
 
   BackHandler(onBack = onNavigateBack)
 
@@ -397,6 +398,8 @@ fun SettingsScreen(
 
       SpeechReaderSettings(
         settings = speechSettings,
+        androidVoices = androidVoices,
+        onAndroidVoice = { viewModel.setAndroidVoice(it) },
         onEngine = { viewModel.setSpeechEngine(it) },
         onVoice = { viewModel.setSpeechVoice(it) },
         onSpeed = { viewModel.setReadAloudSpeed(it) },
