@@ -2,11 +2,28 @@ name: Android CI
 on:
   push:
     branches: [main]
+  # Avoid running an expensive emulator on every PR synchronize/commit.
+  # Open/reopen/ready-for-review runs once; further builds are manual.
   pull_request:
     branches: [main]
+    types: [opened, reopened, ready_for_review]
   workflow_dispatch:
+    inputs:
+      run_emulator:
+        description: 'Run emulator tests (slow)'
+        required: false
+        type: boolean
+        default: false
+      build_release:
+        description: 'Also build an internal release APK'
+        required: false
+        type: boolean
+        default: false
 permissions:
   contents: read
+concurrency:
+  group: android-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,7 +43,7 @@ jobs:
       - name: Build and test
         run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest
       - name: Allow Android emulator acceleration
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.run_emulator == true)
         run: |
           if [ -e /dev/kvm ]; then sudo chmod a+rw /dev/kvm; fi
       - name: Verify Zen mode on Android emulator
@@ -52,7 +69,7 @@ jobs:
       # specifically marked main-branch merge, or an internal release PR for verification.
       # No extra workflow is triggered for pushes.
       - name: Build installable internal release APK
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]')) || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'build/internal-release-apk-'))
+        if: (github.event_name == 'workflow_dispatch' && inputs.build_release == true) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]')) || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'build/internal-release-apk-'))
         run: gradle --no-daemon -PnocturneInternalRelease=true :app:assembleRelease
       - name: Verify internal release signing and version
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[internal-release]')) || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'build/internal-release-apk-'))
