@@ -491,7 +491,8 @@ class ReadAloudController(
     session?.cancel()
     session = null
     androidTts.stop()
-    edgePlayer.close()
+    edgePlayer?.close()
+    edgePlayer = null
     closeTrack()
     paragraphs = emptyList()
     sourceMarkdown = ""
