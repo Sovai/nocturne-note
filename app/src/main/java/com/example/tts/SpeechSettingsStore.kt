@@ -24,7 +24,10 @@ data class SpeechPreferences(
   val voice: SpeechVoice = SpeechVoice.AUTO,
   val speed: Float = 1f,
   val backgroundPlayback: Boolean = false,
-  val androidVoiceName: String = ""
+  val androidVoiceName: String = "",
+  val mmsTrimSilence: Boolean = true,
+  val mmsPauseMs: Int = 80,
+  val mmsThreads: Int = 2
 )
 
 /** Persist only user preferences, never text or reference audio. */
@@ -38,7 +41,10 @@ class SpeechSettingsStore(context: Context) {
         .getOrDefault(SpeechVoice.AUTO),
       speed = prefs.getFloat("speed", 1f).coerceIn(0.75f, 1.5f),
       backgroundPlayback = prefs.getBoolean("background", false),
-      androidVoiceName = prefs.getString("android_voice", "") ?: ""
+      androidVoiceName = prefs.getString("android_voice", "") ?: "",
+      mmsTrimSilence = prefs.getBoolean("mms_trim_silence", true),
+      mmsPauseMs = prefs.getInt("mms_pause_ms", 80).coerceIn(0, 600),
+      mmsThreads = prefs.getInt("mms_threads", 2).coerceIn(1, 4)
     )
   )
   val state = _state.asStateFlow()
@@ -48,7 +54,10 @@ class SpeechSettingsStore(context: Context) {
       .putString("voice", value.voice.name)
       .putFloat("speed", value.speed)
       .putBoolean("background", value.backgroundPlayback)
-      .putString("android_voice", value.androidVoiceName).apply()
+      .putString("android_voice", value.androidVoiceName)
+      .putBoolean("mms_trim_silence", value.mmsTrimSilence)
+      .putInt("mms_pause_ms", value.mmsPauseMs)
+      .putInt("mms_threads", value.mmsThreads).apply()
     _state.value = value
   }
 
@@ -57,4 +66,7 @@ class SpeechSettingsStore(context: Context) {
   fun speed(value: Float) = update(_state.value.copy(speed = value.coerceIn(0.75f, 1.5f)))
   fun background(value: Boolean) = update(_state.value.copy(backgroundPlayback = value))
   fun androidVoice(value: String) = update(_state.value.copy(androidVoiceName = value))
+  fun mmsTrimSilence(value: Boolean) = update(_state.value.copy(mmsTrimSilence = value))
+  fun mmsPauseMs(value: Int) = update(_state.value.copy(mmsPauseMs = value.coerceIn(0, 600)))
+  fun mmsThreads(value: Int) = update(_state.value.copy(mmsThreads = value.coerceIn(1, 4)))
 }
