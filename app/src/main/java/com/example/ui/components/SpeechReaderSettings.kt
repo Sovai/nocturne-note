@@ -8,6 +8,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
@@ -31,6 +38,7 @@ fun SpeechReaderSettings(
   onSpeed: (Float) -> Unit,
   onBackground: (Boolean) -> Unit
 ) {
+  var voiceExpanded by remember { mutableStateOf(false) }
   Card(
     modifier = Modifier.fillMaxWidth().testTag("settings_read_aloud"),
     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)
@@ -68,10 +76,17 @@ fun SpeechReaderSettings(
             Text("No installed Khmer/English system voices detected.",
               style = MaterialTheme.typography.bodySmall)
           } else {
-            androidVoices.forEach { name ->
-              FilterChip(selected = settings.androidVoiceName == name,
-                onClick = { onAndroidVoice(name) },
-                label = { Text(name, maxLines = 1) })
+            TextButton(onClick = { voiceExpanded = true }) {
+              Text(settings.androidVoiceName.ifBlank { "System default" }, maxLines = 1)
+            }
+            DropdownMenu(expanded = voiceExpanded,
+              onDismissRequest = { voiceExpanded = false }) {
+              DropdownMenuItem(text = { Text("System default") },
+                onClick = { onAndroidVoice(""); voiceExpanded = false })
+              androidVoices.forEach { name ->
+                DropdownMenuItem(text = { Text(name) },
+                  onClick = { onAndroidVoice(name); voiceExpanded = false })
+              }
             }
           }
         }
