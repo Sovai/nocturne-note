@@ -140,7 +140,8 @@ class ReadAloudController(
                   )
                 ))
               }
-              val audio = withContext(Dispatchers.Default) { offline.generate(text = text, speed = speed) }
+              val activeEngine = requireNotNull(offline)
+              val audio = withContext(Dispatchers.Default) { activeEngine.generate(text = text, speed = speed) }
               currentCoroutineContext().ensureActive()
               _state.value = _state.value.copy(engine = "Khmer MMS", playing = true, loading = false)
               playSamples(audio.samples, audio.sampleRate)
