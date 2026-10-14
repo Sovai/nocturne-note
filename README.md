@@ -25,23 +25,23 @@ The voice is the Khmer Meta MMS model converted to ONNX by [willwade](https://hu
 
 OmniVoice needs a Python/PyTorch host; it is **not** currently a downloadable Android ONNX model. The optional LAN bridge is in tools/omnivoice_server.py. Use an NVIDIA GPU for practical performance. On Windows, from a PowerShell session in the repository:
 
-\`\`\`powershell
+```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install torch torchaudio --index-url https://download.pytorch.org/whl/cu128
 pip install omnivoice numpy soundfile
 python tools/omnivoice_server.py --host 0.0.0.0 --port 8765 --token "REPLACE_WITH_YOUR_OWN_RANDOM_SECRET_32_CHARACTERS"
-\`\`\`
+```
 
-The first launch downloads the model to your **PC**, never to Android. Verify that installed CUDA/PyTorch versions match your GPU drivers (see official OmniVoice installation guide). Find your PC's LAN IP using \`ipconfig\`. Connect phone and PC to the same trusted Wi-Fi. In **Settings → Read Aloud**, select **OmniVoice (PC / Wi-Fi)**, enter \`http://192.168.x.x:8765\` and the same secret. Tap **Test OmniVoice connection**. Android supports only literal private IPv4 addresses for this unencrypted local connection.
+The first launch downloads the model to your **PC**, never to Android. Verify that installed CUDA/PyTorch versions match your GPU drivers (see official OmniVoice installation guide). Find your PC's LAN IP using `ipconfig`. Connect phone and PC to the same trusted Wi-Fi. In **Settings → Read Aloud**, select **OmniVoice (PC / Wi-Fi)**, enter `http://192.168.x.x:8765` and the same secret. Tap **Test OmniVoice connection**. Android supports only literal private IPv4 addresses for this unencrypted local connection.
 
-**Optional consistent Khmer voice:** provide a 3–10 second Khmer speaker recording you have permission to use and its exact Khmer transcript. Add \`--reference-wav "C:\path\reference.wav" --reference-text "..." \` to the server command. It creates a reusable prompt at server startup and uses it for subsequent requests. Without a reference, choose Automatic / Male / Female / Older male / Soft female; voice design was trained primarily on English/Chinese and may produce inconsistent Khmer. These options do not change MMS: MMS has only one speaker.
+**Optional consistent Khmer voice:** provide a 3–10 second Khmer speaker recording you have permission to use and its exact Khmer transcript. Add `--reference-wav "C:\path\reference.wav" --reference-text "..." ` to the server command. It creates a reusable prompt at server startup and uses it for subsequent requests. Without a reference, choose Automatic / Male / Female / Older male / Soft female; voice design was trained primarily on English/Chinese and may produce inconsistent Khmer. These options do not change MMS: MMS has only one speaker.
 
 **Security:** do not expose port 8765 to the public internet. The server requires a long token; HTTP on LAN is not encrypted. Note text leaves the phone for the locally configured PC during synthesis, but no paid cloud TTS is used. Do not use untrusted Wi-Fi or port-forward the server. Access token preferences are excluded from Android backup.
 
-**Licensing:** check the OmniVoice checkpoint license separately from its code license before distributing or monetizing synthesized outputs. Meta MMS checkpoint is CC BY-NC 4.0 (noncommercial). No voice models are bundled into the APK.
+**Licensing:** the OmniVoice code is Apache-2.0, but the pretrained weights are CC BY-NC, restricting commercial use. Confirm model rights before monetizing synthesized outputs. Meta MMS checkpoint is CC BY-NC 4.0 (noncommercial). No voice models are bundled into the APK.
 
-**Performance:** the reader pre-generates the next chunk while playing the current one. First-chunk synthesis still incurs latency and low-powered computers can have gaps. Voice speed is adjustable between 0.75× and 1.5×. Switching voices restarts the current reading session.
+**Performance:** the reader pre-generates the next chunk while playing the current one. First-chunk synthesis still incurs latency and low-powered computers can have gaps. Voice speed is adjustable between 0.75× and 1.5×. Voice style changes apply to the next reading session.
 
 
 ## Build
