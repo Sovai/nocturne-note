@@ -119,7 +119,16 @@ val stageTokenizerCxxRuntime = tasks.register<Copy>("stageTokenizerCxxRuntime") 
     "x86_64" to "x86_64-linux-android"
   )
   val runtimeRoot = providers.provider {
-    val root = android.sdkDirectory.resolve("ndk/$pinnedNdk/toolchains/llvm/prebuilt")
+    val sdkLocation = providers.environmentVariable("ANDROID_HOME")
+      .orElse(providers.environmentVariable("ANDROID_SDK_ROOT"))
+      .orElse(providers.provider {
+        val props = java.util.Properties()
+        val local = rootProject.file("local.properties")
+        if (local.isFile) local.inputStream().use { props.load(it) }
+        props.getProperty("sdk.dir")
+          ?: throw GradleException("Cannot find Android SDK. Set ANDROID_HOME or sdk.dir.")
+      }).get()
+    val root = file(sdkLocation).resolve("ndk/$pinnedNdk/toolchains/llvm/prebuilt")
     val host = root.listFiles()?.firstOrNull { it.isDirectory }
       ?: throw GradleException("Android NDK $pinnedNdk is required to package OmniVoice tokenizer runtime")
     host.resolve("sysroot/usr/lib")
