@@ -109,6 +109,9 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
   fun setSpeechEngine(engine: SpeechEngine) = SpeechRuntime.engine(engine)
   fun setSpeechVoice(voice: SpeechVoice) = speechSettingsStore.voice(voice)
+  fun setMmsTrimSilence(enabled: Boolean) = speechSettingsStore.mmsTrimSilence(enabled)
+  fun setMmsPauseMs(ms: Int) = speechSettingsStore.mmsPauseMs(ms)
+  fun setMmsThreads(threads: Int) = speechSettingsStore.mmsThreads(threads)
   fun setAndroidVoice(name: String) {
     speechSettingsStore.androidVoice(name)
     if (readAloudController.state.value.active) readAloudController.skip(0)
