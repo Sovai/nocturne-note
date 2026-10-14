@@ -106,6 +106,7 @@ fun EditorScreen(
   val editorState by viewModel.editorState.collectAsState()
   val readAloudState by viewModel.readAloudState.collectAsState()
   val speechPreferences by viewModel.speechPreferences.collectAsState()
+  val androidVoices by viewModel.availableAndroidVoices.collectAsState()
   val editorTextFieldValue by viewModel.editorTextFieldValue.collectAsState()
   val activeNoteVersions by viewModel.activeNoteVersions.collectAsState()
   val searchState by viewModel.editorSearch.collectAsState()
@@ -432,6 +433,8 @@ fun EditorScreen(
           SpeechPlayerBar(
             state = readAloudState,
             preferences = speechPreferences,
+            androidVoices = androidVoices,
+            onAndroidVoice = { viewModel.setAndroidVoice(it) },
             onEngine = { viewModel.setSpeechEngine(it) },
             onSeek = { viewModel.seekReadAloudChunk(it) },
             onToggle = { viewModel.toggleReadAloud() },
