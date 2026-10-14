@@ -12,8 +12,8 @@ android {
     applicationId = "com.sovai.nocturnenote"
     minSdk = 24
     targetSdk = 36
-    versionCode = 5
-    versionName = "1.0.4"
+    versionCode = 6
+    versionName = "1.0.5"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
   }
@@ -33,6 +33,13 @@ android {
     release {
       isCrunchPngs = false
       isMinifyEnabled = false
+      // Installable internal release APKs use the existing development certificate
+      // so they can update current test installs. NEVER publish to an app store.
+      // Normal production release builds remain unsigned until a private signing
+      // certificate is configured.
+      if (providers.gradleProperty("nocturneInternalRelease").orNull == "true") {
+        signingConfig = signingConfigs.getByName("development")
+      }
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
     debug {
