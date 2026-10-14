@@ -26,11 +26,14 @@ object SpeechRuntime {
 
   private var audioManager: AudioManager? = null
   private var focusRequest: AudioFocusRequest? = null
+  private var focusGranted = false
   private val focusListener = AudioManager.OnAudioFocusChangeListener { change ->
     when (change) {
+      AudioManager.AUDIOFOCUS_GAIN -> focusGranted = true
       AudioManager.AUDIOFOCUS_LOSS,
       AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
       AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
+        focusGranted = false
         if (::controller.isInitialized) controller.pauseForFocus()
       }
     }
@@ -48,6 +51,11 @@ object SpeechRuntime {
 
   private fun acquireFocus(): Boolean {
     val manager = audioManager ?: return false
+    if (focusGranted) return true
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      focusRequest?.let { manager.abandonAudioFocusRequest(it) }
+      focusRequest = null
+    }
     val result = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
         .setAudioAttributes(AudioAttributes.Builder()
@@ -63,7 +71,8 @@ object SpeechRuntime {
       manager.requestAudioFocus(focusListener, AudioManager.STREAM_MUSIC,
         AudioManager.AUDIOFOCUS_GAIN)
     }
-    return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+    focusGranted = result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+    return focusGranted
   }
 
   fun start(markdown: String, noteId: Long) {
@@ -95,6 +104,12 @@ object SpeechRuntime {
   fun stop() {
     if (!::controller.isInitialized) return
     controller.stop()
+    releaseFocus()
+    app.stopService(Intent(app, SpeechPlaybackService::class.java))
+  }
+
+  fun releaseFocus() {
+    focusGranted = false
     val manager = audioManager
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       focusRequest?.let { manager?.abandonAudioFocusRequest(it) }
@@ -103,7 +118,6 @@ object SpeechRuntime {
       @Suppress("DEPRECATION")
       manager?.abandonAudioFocus(focusListener)
     }
-    app.stopService(Intent(app, SpeechPlaybackService::class.java))
   }
 
   fun background(enabled: Boolean) {
