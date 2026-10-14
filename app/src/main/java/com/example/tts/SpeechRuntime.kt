@@ -45,7 +45,7 @@ object SpeechRuntime {
     models = KhmerModelManager(app)
     omniModels = OmniVoiceModelManager(app)
     settings = SpeechSettingsStore(app)
-    controller = ReadAloudController(app, models, settings)
+    controller = ReadAloudController(app, models, omniModels, settings)
     audioManager = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
   }
 
@@ -96,7 +96,9 @@ object SpeechRuntime {
   fun skip(delta: Int) = seek(controller.state.value.paragraph + delta)
 
   fun engine(engine: SpeechEngine) {
-    if (engine == SpeechEngine.OMNIVOICE) return // never claim unsupported local playback
+    if (engine == SpeechEngine.OMNIVOICE) {
+      if (Build.VERSION.SDK_INT < 26 || !omniModels.state.value.installed) return
+    }
     settings.engine(engine)
     if (controller.state.value.active) controller.skip(0)
   }
