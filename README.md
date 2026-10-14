@@ -45,6 +45,15 @@ Reference: https://huggingface.co/onnx-community/OmniVoice-Onnx
 - Playback prefetches the next chunk and caches generated MMS PCM under a 64 MiB limit, trims excessive silent tails, and exposes adjustable 0–600 ms extra pause and 1–4 CPU threads. Explicit MMS never silently switches to Android TTS when synthesis fails. First-time synthesis can still take longer than playback on some phones.
 - Background playback is opt-in under Settings. It uses an Android media foreground service with lock-screen/notification controls and audio focus. Leaving the note itself always stops playback. Without the option, leaving the app also stops playback.
 
+
+#### OmniVoice crash recovery and Android CI
+
+OmniVoice inference runs in a dedicated Android `:omnivoice` subprocess instead of the editor process. If the 735 MiB model exceeds memory limits or a native library crashes, the reader shows an error rather than terminating the note editor. The worker returns PCM through a private cache file, avoiding Android Binder's message-size limit. Available-memory checks and conservative ONNX session optimization reduce the risk of native out-of-memory failures. This **does not prove** that the model produces correct Khmer audio: a device test is still required.
+
+For device diagnostics, run `adb logcat -d -v time | grep -iE 'NocturneOmniVoice|FATAL EXCEPTION|OutOfMemoryError|onnxruntime|djl_tokenizer'` immediately after the failure. Native crashes and low-memory kills can be diagnosed through Android's ApplicationExitInfo when available.
+
+Android CI no longer builds on each feature-branch commit. It runs on main pushes, PR open/reopen/ready-for-review, or manual workflow dispatch. For a targeted post-commit CI check, add the `bug` label to the PR (remove/re-add for a new run); labeled checks skip the costly emulator. The manual workflow has separate opt-ins for emulator tests and internal release APKs.
+
 #### Licenses and privacy
 
 Meta MMS weights: CC BY-NC 4.0 (noncommercial). OmniVoice (k2-fsa) and the onnx-community conversion declare Apache-2.0; check each component and any future model assets individually before commercial redistribution. Voice models are not bundled into the APK. Normal reading is entirely local; internet is only used for optional model catalog/downloads.
