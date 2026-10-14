@@ -404,6 +404,8 @@ fun SettingsScreen(
         androidVoices = androidVoices,
         omniInstalled = omniModel.installed && android.os.Build.VERSION.SDK_INT >= 26,
         onAndroidVoice = { viewModel.setAndroidVoice(it) },
+        onEdgeVoice = { viewModel.setEdgeVoice(it) },
+        onEdgePitch = { viewModel.setEdgePitch(it) },
         onEngine = { viewModel.setSpeechEngine(it) },
         onVoice = { viewModel.setSpeechVoice(it) },
         onSpeed = { viewModel.setReadAloudSpeed(it) },
