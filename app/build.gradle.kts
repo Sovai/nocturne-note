@@ -10,7 +10,7 @@ android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
   // Pinned NDK supplies the C++ shared runtime required by DJL tokenizer JNI.
-  ndkVersion = "27.2.12479018"
+  ndkVersion = "27.3.13750724"
 
   defaultConfig {
     applicationId = "com.sovai.nocturnenote"
