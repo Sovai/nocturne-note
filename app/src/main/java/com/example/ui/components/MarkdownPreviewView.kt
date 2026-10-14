@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
+import com.example.ui.theme.withKhmerFont
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.TextUnit
@@ -104,7 +105,7 @@ private fun RenderMarkdownBlock(
         else -> MaterialTheme.typography.titleMedium to (baseFontSize.value + 1).sp
       }
       Text(
-        text = MarkdownParser.parseInlineMarkdown(block.text),
+        text = MarkdownParser.parseInlineMarkdown(block.text).withKhmerFont(),
         style = style.copy(
           fontSize = size,
           fontWeight = FontWeight.Bold,
@@ -117,7 +118,7 @@ private fun RenderMarkdownBlock(
 
     is MarkdownBlock.Paragraph -> {
       Text(
-        text = MarkdownParser.parseInlineMarkdown(block.text),
+        text = MarkdownParser.parseInlineMarkdown(block.text).withKhmerFont(),
         style = MaterialTheme.typography.bodyLarge.copy(
           fontSize = baseFontSize,
           lineHeight = (baseFontSize.value * 1.6f).sp,
@@ -144,7 +145,7 @@ private fun RenderMarkdownBlock(
         )
         Spacer(modifier = Modifier.width(12.dp))
         Text(
-          text = MarkdownParser.parseInlineMarkdown(block.text),
+          text = MarkdownParser.parseInlineMarkdown(block.text).withKhmerFont(),
           style = MaterialTheme.typography.bodyLarge.copy(
             fontSize = baseFontSize,
             fontStyle = FontStyle.Italic,
@@ -202,7 +203,7 @@ private fun RenderMarkdownBlock(
               .padding(12.dp)
           ) {
             Text(
-              text = block.code,
+              text = block.code.withKhmerFont(),
               style = MaterialTheme.typography.bodyMedium.copy(
                 fontFamily = FontFamily.Monospace,
                 fontSize = (baseFontSize.value - 2).sp,
@@ -228,7 +229,7 @@ private fun RenderMarkdownBlock(
         )
         Spacer(modifier = Modifier.width(10.dp))
         Text(
-          text = MarkdownParser.parseInlineMarkdown(block.text),
+          text = MarkdownParser.parseInlineMarkdown(block.text).withKhmerFont(),
           style = MaterialTheme.typography.bodyLarge.copy(
             fontSize = baseFontSize,
             fontFamily = fontFamily
@@ -255,7 +256,7 @@ private fun RenderMarkdownBlock(
           modifier = Modifier.padding(end = 8.dp)
         )
         Text(
-          text = MarkdownParser.parseInlineMarkdown(block.text),
+          text = MarkdownParser.parseInlineMarkdown(block.text).withKhmerFont(),
           style = MaterialTheme.typography.bodyLarge.copy(
             fontSize = baseFontSize,
             lineHeight = (baseFontSize.value * 1.5f).sp,
@@ -281,7 +282,7 @@ private fun RenderMarkdownBlock(
           modifier = Modifier.width(28.dp)
         )
         Text(
-          text = MarkdownParser.parseInlineMarkdown(block.text),
+          text = MarkdownParser.parseInlineMarkdown(block.text).withKhmerFont(),
           style = MaterialTheme.typography.bodyLarge.copy(
             fontSize = baseFontSize,
             lineHeight = (baseFontSize.value * 1.5f).sp,
@@ -309,7 +310,7 @@ private fun RenderMarkdownBlock(
           ) {
             block.headers.forEach { header ->
               Text(
-                text = header,
+                text = header.withKhmerFont(),
                 style = MaterialTheme.typography.bodyMedium.copy(
                   fontWeight = FontWeight.Bold,
                   fontSize = (baseFontSize.value - 1).sp
@@ -331,7 +332,7 @@ private fun RenderMarkdownBlock(
             ) {
               row.forEach { cell ->
                 Text(
-                  text = MarkdownParser.parseInlineMarkdown(cell),
+                  text = MarkdownParser.parseInlineMarkdown(cell).withKhmerFont(),
                   style = MaterialTheme.typography.bodyMedium.copy(fontSize = (baseFontSize.value - 2).sp),
                   color = MaterialTheme.colorScheme.onSurface,
                   modifier = Modifier
