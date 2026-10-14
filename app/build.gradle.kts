@@ -144,4 +144,11 @@ val stageTokenizerCxxRuntime = tasks.register<Copy>("stageTokenizerCxxRuntime") 
   }
   into(layout.buildDirectory.dir("generated/native-tokenizer-runtime"))
 }
-android.sourceSets.getByName("main").jniLibs.srcDir(stageTokenizerCxxRuntime)
+// AGP 9 disallows TaskProviders in legacy sourceSets. Declare a static path
+// and an explicit task dependency before Android merges JNI folders.
+android.sourceSets.getByName("main").jniLibs.srcDir(
+  layout.buildDirectory.dir("generated/native-tokenizer-runtime").get().asFile
+)
+tasks.matching {
+  it.name == "preBuild" || it.name.endsWith("JniLibFolders")
+}.configureEach { dependsOn(stageTokenizerCxxRuntime) }
