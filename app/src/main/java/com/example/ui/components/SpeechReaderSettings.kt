@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.tts.EdgeTtsClient
 import com.example.tts.SpeechEngine
 import com.example.tts.SpeechPreferences
 import com.example.tts.SpeechVoice
@@ -36,6 +37,8 @@ fun SpeechReaderSettings(
   onEngine: (SpeechEngine) -> Unit,
   onVoice: (SpeechVoice) -> Unit,
   onAndroidVoice: (String) -> Unit,
+  onEdgeVoice: (String) -> Unit,
+  onEdgePitch: (Int) -> Unit,
   onSpeed: (Float) -> Unit,
   onBackground: (Boolean) -> Unit
 ) {
@@ -69,6 +72,22 @@ fun SpeechReaderSettings(
           style = MaterialTheme.typography.bodySmall)
         SpeechEngine.OMNIVOICE -> Text("Automatic voice is available. Custom voice design/cloning is not yet enabled.",
           style = MaterialTheme.typography.bodySmall)
+        SpeechEngine.EDGE -> {
+          Text("Khmer neural voice")
+          Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected = settings.edgeVoice == EdgeTtsClient.PISETH,
+              onClick = { onEdgeVoice(EdgeTtsClient.PISETH) }, label = { Text("Piseth · Male") })
+            FilterChip(selected = settings.edgeVoice == EdgeTtsClient.SREYMOM,
+              onClick = { onEdgeVoice(EdgeTtsClient.SREYMOM) }, label = { Text("Sreymom · Female") })
+          }
+          Text("Pitch · ${settings.edgePitchHz} Hz")
+          Slider(value = settings.edgePitchHz.toFloat(),
+            onValueChange = { onEdgePitch(it.toInt()) }, valueRange = -40f..40f,
+            modifier = Modifier.testTag("edge_pitch_slider"))
+          Text("Requires internet. Text from your note is sent to Microsoft's Edge Read Aloud service. This unofficial no-key interface may stop working or impose limits.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         else -> {
           Text("Android fallback voice",
             style = MaterialTheme.typography.bodySmall,
