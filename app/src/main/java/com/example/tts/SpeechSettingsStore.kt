@@ -26,7 +26,7 @@ data class SpeechPreferences(
   val backgroundPlayback: Boolean = false,
   val androidVoiceName: String = "",
   val mmsTrimSilence: Boolean = true,
-  val mmsPauseMs: Int = 80,
+  val mmsPauseMs: Int = 0,
   val mmsThreads: Int = 2
 )
 
@@ -43,7 +43,7 @@ class SpeechSettingsStore(context: Context) {
       backgroundPlayback = prefs.getBoolean("background", false),
       androidVoiceName = prefs.getString("android_voice", "") ?: "",
       mmsTrimSilence = prefs.getBoolean("mms_trim_silence", true),
-      mmsPauseMs = prefs.getInt("mms_pause_ms", 80).coerceIn(0, 600),
+      mmsPauseMs = prefs.getInt("mms_pause_ms", 0).coerceIn(0, 600),
       mmsThreads = prefs.getInt("mms_threads", 2).coerceIn(1, 4)
     )
   )
