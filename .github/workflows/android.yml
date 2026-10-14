@@ -29,7 +29,7 @@ jobs:
         run: |
           apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
           "$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk
-          "$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk | grep -F "64:46:AC:0D:78:7A:95:56:85:C8:C1:21:C5:96:48:94:2C:32:22:0D:9F:E6:63:4D:ED:0B:D3:A0:AE:D2:63:70"
+          "$apksigner" verify --print-certs app/build/outputs/apk/debug/app-debug.apk | grep -Fi "6446ac0d787a955685c8c121c59648942c32220d9fe6634ded0bd3a0aed26370"
       - name: Upload debug APK
         if: success()
         uses: actions/upload-artifact@v4
