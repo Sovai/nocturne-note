@@ -25,6 +25,20 @@ jobs:
           gradle-version: '9.3.1'
       - name: Build and test
         run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:testDebugUnitTest
+      - name: Allow Android emulator acceleration
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ -e /dev/kvm ]; then sudo chmod a+rw /dev/kvm; fi
+      - name: Verify Zen mode on Android emulator
+        if: github.event_name == 'pull_request'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: gradle --no-daemon :app:connectedDebugAndroidTest
       - name: Verify signing certificate
         run: |
           apksigner="$ANDROID_HOME/build-tools/36.0.0/apksigner"
