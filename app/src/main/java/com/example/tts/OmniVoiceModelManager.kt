@@ -28,6 +28,7 @@ data class OmniVoiceModelState(
  */
 class OmniVoiceModelManager(context: Context) {
   private val directory = File(context.filesDir, "tts/omnivoice-onnx-int4")
+  private val cachedCatalog = File(directory, "catalog.json")
   private val lock = Mutex()
   private val _state = MutableStateFlow(OmniVoiceModelState())
   val state = _state.asStateFlow()
@@ -35,14 +36,21 @@ class OmniVoiceModelManager(context: Context) {
   data class Asset(val relativePath: String, val url: String, val hash: String, val bytes: Long)
 
   private fun catalog(): List<Asset>? {
-    val connection = (URL("https://raw.githubusercontent.com/Sovai/-nocturne-note-models/main/catalog.json")
-      .openConnection() as HttpURLConnection).apply {
-      connectTimeout = 10_000; readTimeout = 10_000
+    val text = runCatching {
+      val connection = (URL("https://raw.githubusercontent.com/Sovai/-nocturne-note-models/main/catalog.json")
+        .openConnection() as HttpURLConnection).apply {
+        connectTimeout = 10_000; readTimeout = 10_000
+      }
+      try {
+        check(connection.responseCode == 200) { "Model catalog unavailable" }
+        connection.inputStream.bufferedReader().use { it.readText() }
+      } finally { connection.disconnect() }
+    }.getOrElse {
+      cachedCatalog.takeIf { it.isFile }?.readText()
+        ?: throw IllegalStateException("Offline: no cached model catalog", it)
     }
-    val text = try {
-      check(connection.responseCode == 200) { "Model catalog unavailable" }
-      connection.inputStream.bufferedReader().use { it.readText() }
-    } finally { connection.disconnect() }
+    directory.mkdirs()
+    cachedCatalog.writeText(text)
     val root = JSONObject(text)
     val models = root.getJSONArray("models")
     val model = (0 until models.length()).map { models.getJSONObject(it) }
