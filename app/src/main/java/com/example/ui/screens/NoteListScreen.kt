@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -120,12 +121,32 @@ fun NoteListScreen(
     topBar = {
       TopAppBar(
         title = {
-          Row(verticalAlignment = Alignment.CenterVertically) {
+          Row(
+            modifier = Modifier.offset(x = (-10).dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
+          ) {
+            // Use the transparent mark and theme-colored text instead of a bitmap
+            // wordmark, which had built-in left whitespace and poor light contrast.
             Image(
-              painter = painterResource(R.drawable.nocturnenote_logo_image),
-              contentDescription = "NocturneNote",
-              modifier = Modifier.width(188.dp).height(42.dp),
+              painter = painterResource(R.drawable.nocturnenote_icon_foreground),
+              contentDescription = null,
+              modifier = Modifier.size(42.dp),
               contentScale = androidx.compose.ui.layout.ContentScale.Fit
+            )
+            Text(
+              text = "Nocturne",
+              color = MaterialTheme.colorScheme.onSurface,
+              fontSize = 20.sp,
+              fontWeight = FontWeight.SemiBold,
+              maxLines = 1
+            )
+            Text(
+              text = "Note",
+              color = MaterialTheme.colorScheme.primary,
+              fontSize = 20.sp,
+              fontWeight = FontWeight.Bold,
+              maxLines = 1
             )
           }
         },
