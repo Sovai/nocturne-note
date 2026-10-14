@@ -8,6 +8,10 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import com.example.tts.KhmerModelManager
 import com.example.tts.ReadAloudController
+import com.example.tts.SpeechSettingsStore
+import com.example.tts.SpeechEngine
+import com.example.tts.SpeechVoice
+import com.example.tts.OmniVoiceClient
 import com.example.ui.editor.MarkdownEditorActions
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -88,7 +92,22 @@ data class EditorSearchState(
 class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
   private val khmerModelManager = KhmerModelManager(application)
-  private val readAloudController = ReadAloudController(application, khmerModelManager)
+  private val speechSettingsStore = SpeechSettingsStore(application)
+  private val readAloudController = ReadAloudController(application, khmerModelManager, speechSettingsStore)
+  val speechPreferences = speechSettingsStore.state
+  fun setSpeechEngine(engine: SpeechEngine) = speechSettingsStore.engine(engine)
+  fun setSpeechVoice(voice: SpeechVoice) = speechSettingsStore.voice(voice)
+  fun setSpeechServer(url: String) = speechSettingsStore.server(url)
+  fun setSpeechToken(token: String) = speechSettingsStore.token(token)
+  fun testOmniVoice() {
+    speechSettingsStore.status("Connecting…")
+    viewModelScope.launch {
+      val status = runCatching { OmniVoiceClient().health(speechSettingsStore.state.value) }
+        .fold(onSuccess = { if (it) "Connected to OmniVoice" else "Unexpected server response" },
+          onFailure = { "Connection failed: " + (it.message ?: "Unknown error") })
+      speechSettingsStore.status(status)
+    }
+  }
   val speechModelState = khmerModelManager.state
   val readAloudState = readAloudController.state
 
