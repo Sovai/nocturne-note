@@ -97,6 +97,13 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   private val readAloudController get() = SpeechRuntime.controller
   val speechPreferences = SpeechRuntime.settings.state
   val speechModelState = SpeechRuntime.models.state
+  val omniVoiceModelState = SpeechRuntime.omniModels.state
+  fun refreshOmniVoiceModels() { viewModelScope.launch { SpeechRuntime.omniModels.refresh() } }
+  fun downloadOmniVoiceModels() { viewModelScope.launch { SpeechRuntime.omniModels.download() } }
+  fun deleteOmniVoiceModels() {
+    if (SpeechRuntime.controller.state.value.active) SpeechRuntime.stop()
+    viewModelScope.launch { SpeechRuntime.omniModels.delete() }
+  }
   val readAloudState = SpeechRuntime.controller.state
   val availableAndroidVoices = SpeechRuntime.controller.availableAndroidVoices
 
