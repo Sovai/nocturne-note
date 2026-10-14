@@ -38,6 +38,7 @@ data class ReadAloudState(
   val playing: Boolean = false,
   val paused: Boolean = false,
   val loading: Boolean = false,
+  val generationStage: String = "",
   val paragraph: Int = 0,
   val totalParagraphs: Int = 0,
   val engine: String = "",
@@ -247,12 +248,13 @@ class ReadAloudController(
     val settings = preferences.state.value
     session = scope.launch {
       _state.value = _state.value.copy(active = true, loading = true,
-        playing = false, paused = false, paragraph = index, error = null)
+        playing = false, paused = false, paragraph = index, error = null,
+        generationStage = "")
       var offline: OfflineTts? = null
       var omni: OmniVoiceRemoteClient? = null
       var pending: kotlinx.coroutines.Deferred<Result<Generated>>? = null
 
-      suspend fun render(chunk: String): Generated {
+      suspend fun render(chunk: String, chunkIndex: Int): Generated {
         if (settings.engine == SpeechEngine.EDGE) {
           val audio = edgeClient.synthesize(chunk, settings.edgeVoice,
             settings.speed, settings.edgePitchHz)
@@ -272,7 +274,12 @@ class ReadAloudController(
           withContext(Dispatchers.IO) { audioCache.get(key) }?.let {
             return Generated(it, "OmniVoice ONNX · cached")
           }
-          val audio = engine.synthesize(chunk)
+          val audio = engine.synthesize(chunk) { stage ->
+            if (generation == playbackGeneration && _state.value.active &&
+              _state.value.paragraph == chunkIndex) {
+              _state.value = _state.value.copy(generationStage = stage)
+            }
+          }
           currentCoroutineContext().ensureActive()
           withContext(Dispatchers.IO) { runCatching { audioCache.put(key, audio) } }
           return Generated(audio, "OmniVoice ONNX · local")
@@ -323,13 +330,14 @@ class ReadAloudController(
           currentCoroutineContext().ensureActive()
           if (noteId > 0) resumePrefs.edit().putInt("hash_$noteId", contentSignature)
             .putInt("chunk_$noteId", i).apply()
-          _state.value = _state.value.copy(paragraph = i, loading = i == index, error = null)
+          _state.value = _state.value.copy(paragraph = i, loading = true,
+            playing = false, error = null, generationStage = "")
           val current = if (pending != null) {
             pending.await().getOrThrow().also { pending = null }
-          } else withContext(Dispatchers.IO) { render(paragraphs[i]) }
+          } else withContext(Dispatchers.IO) { render(paragraphs[i], i) }
 
           if (i < paragraphs.lastIndex) {
-            pending = async(Dispatchers.IO) { runCatching { render(paragraphs[i + 1]) } }
+            pending = async(Dispatchers.IO) { runCatching { render(paragraphs[i + 1], i + 1) } }
           }
           if (current.mp3 != null) {
             while (_state.value.paused) delay(35)
@@ -364,8 +372,11 @@ class ReadAloudController(
       } catch (_: CancellationException) {
         // User navigated, paused Android TTS, skipped, or stopped.
       } catch (e: Exception) {
-        _state.value = _state.value.copy(active = false, playing = false,
-          paused = false, loading = false, error = e.message ?: "Speech unavailable")
+        if (generation == playbackGeneration) {
+          _state.value = _state.value.copy(active = false, playing = false,
+            paused = false, loading = false, generationStage = "",
+            error = e.message ?: "Speech unavailable")
+        }
       } finally {
         // Wait until an in-flight JNI synthesis call has exited before releasing
         // its native model. Cancellation alone cannot interrupt generate().

@@ -70,7 +70,8 @@ fun SpeechPlayerBar(
     modifier = Modifier.fillMaxWidth().testTag("read_aloud_player")) {
     Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)) {
       Text(
-        text = state.error ?: if (state.loading) "Generating speech…" else "Read Aloud",
+        text = state.error ?: if (state.loading)
+          state.generationStage.ifBlank { "Generating speech…" } else "Read Aloud",
         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
         color = if (state.error != null) MaterialTheme.colorScheme.error
           else MaterialTheme.colorScheme.onSurface

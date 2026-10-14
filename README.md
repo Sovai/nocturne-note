@@ -44,6 +44,8 @@ Select **Edge Read Aloud · online** in Settings or the mini-player. Use Khmer v
 
 #### OmniVoice Android beta limitations
 
+Generation now reports its current stage (tokenization, model loading, unmasking step 1–32, or waveform decoding). Startup has a 20-second deadline and each OmniVoice chunk has a 180-second deadline. Deadline expiry is shown as an error and the worker client is closed; it is not silently treated as a user cancellation that leaves the loading UI active. Edge synthesis has the same error handling with a 65-second deadline. These bounds and diagnostic stages do not establish that OmniVoice is fast enough for continuous reading on a phone.
+
 The app now runs the published Qwen3-based 32-step unmasking process and Higgs decoding locally through Android ONNX Runtime with a Qwen tokenizer. Only default voice/no reference recording is implemented. Voice cloning/design needs the separate acoustic/semantic/quantizer-encoder path. The model can be enabled in Settings after downloading and validating all assets; use a short Khmer passage initially.
 
 The published INT4 and FP16 Higgs assets total approximately 735 MiB, not counting runtime overhead. Physical Android testing of RAM, synthesis speed and quality is required before declaring this production-ready. The app exposes it as beta, not as a quality-verified replacement for MMS.

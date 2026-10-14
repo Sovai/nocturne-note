@@ -34,9 +34,11 @@ class OmniVoiceWorkerService : Service() {
     const val MSG_SYNTHESIZE = 1
     const val MSG_AUDIO = 2
     const val MSG_ERROR = 3
+    const val MSG_PROGRESS = 4
     const val KEY_TEXT = "text"
     const val KEY_FILE = "file"
     const val KEY_ERROR = "error"
+    const val KEY_PROGRESS = "progress"
     private const val TAG = "NocturneOmniVoice"
     const val DIRECTORY = "omnivoice-generated"
   }
@@ -63,6 +65,11 @@ class OmniVoiceWorkerService : Service() {
           serializeInference.withLock {
             try {
               Log.i(TAG, "OmniVoice request $request: preparing local model")
+              fun progress(stage: String) {
+                Log.i(TAG, "OmniVoice request $request: $stage")
+                reply(receiver, request, MSG_PROGRESS, KEY_PROGRESS, stage)
+              }
+              progress("Preparing OmniVoice model")
               if (engine == null) {
                 val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
                 val memory = ActivityManager.MemoryInfo().also(manager::getMemoryInfo)
@@ -73,7 +80,7 @@ class OmniVoiceWorkerService : Service() {
                 check(dir.isDirectory) { "The downloaded OmniVoice model was not found" }
                 engine = OmniVoiceOnDeviceEngine(dir, threads = 2)
               }
-              val audio = requireNotNull(engine).synthesize(text)
+              val audio = requireNotNull(engine).synthesize(text, onProgress = ::progress)
               check(audio.sampleRate == 24_000 && audio.samples.isNotEmpty())
               check(audio.samples.size < 3_000_000) { "Generated audio is too long" }
               val outputDir = File(cacheDir, DIRECTORY).also { it.mkdirs() }
@@ -97,7 +104,7 @@ class OmniVoiceWorkerService : Service() {
             } catch (e: Throwable) {
               Log.e(TAG, "OmniVoice failed for request $request", e)
               reply(receiver, request, MSG_ERROR, KEY_ERROR,
-                "\${e.javaClass.simpleName}: \${e.message.orEmpty().take(250)}")
+                "${e.javaClass.simpleName}: ${e.message.orEmpty().take(250)}")
             }
           }
         }

@@ -21,7 +21,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import java.io.DataInputStream
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
@@ -35,6 +34,7 @@ class OmniVoiceRemoteClient(context: Context) : AutoCloseable {
   private val app = context.applicationContext
   private val nextId = AtomicInteger()
   private val pending = ConcurrentHashMap<Int, CompletableDeferred<SpeechAudio>>()
+  private val progress = ConcurrentHashMap<Int, (String) -> Unit>()
   private val readerScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private val ready = CompletableDeferred<Messenger>()
   @Volatile private var bound = false
@@ -42,7 +42,12 @@ class OmniVoiceRemoteClient(context: Context) : AutoCloseable {
 
   private val replies = Messenger(object : Handler(Looper.getMainLooper()) {
     override fun handleMessage(message: Message) {
+      if (message.what == OmniVoiceWorkerService.MSG_PROGRESS) {
+        progress[message.arg1]?.invoke(message.data.getString(OmniVoiceWorkerService.KEY_PROGRESS, ""))
+        return
+      }
       val deferred = pending.remove(message.arg1) ?: return
+      progress.remove(message.arg1)
       when (message.what) {
         OmniVoiceWorkerService.MSG_AUDIO -> {
           val name = message.data.getString(OmniVoiceWorkerService.KEY_FILE, "")
@@ -108,6 +113,7 @@ class OmniVoiceRemoteClient(context: Context) : AutoCloseable {
     if (!ready.isCompleted) ready.completeExceptionally(exception)
     pending.values.forEach { it.completeExceptionally(exception) }
     pending.clear()
+    progress.clear()
   }
 
   private fun readOutput(name: String): SpeechAudio {
@@ -132,21 +138,22 @@ class OmniVoiceRemoteClient(context: Context) : AutoCloseable {
     }
   }
 
-  suspend fun synthesize(text: String): SpeechAudio {
+  suspend fun synthesize(text: String, onProgress: (String) -> Unit = {}): SpeechAudio {
     require(text.isNotBlank() && text.length <= 280) { "Text segment too long for OmniVoice" }
     check(!closed) { "OmniVoice session is closed" }
-    // Connection and response handlers both execute on Main, so pending map
-    // ownership never crosses threads.
+    // Connection and response handlers execute on Main; closing can occur on IO.
     return withContext(Dispatchers.Main.immediate) {
       if (!bound) {
         bound = app.bindService(
           Intent(app, OmniVoiceWorkerService::class.java), connection, Context.BIND_AUTO_CREATE)
         check(bound) { "Unable to start offline OmniVoice process" }
       }
-      val remote = withTimeout(20_000) { ready.await() }
+      onProgress("Starting OmniVoice")
+      val remote = withSpeechDeadline(20_000, "OmniVoice startup") { ready.await() }
       val id = nextId.incrementAndGet()
       val result = CompletableDeferred<SpeechAudio>()
       pending[id] = result
+      progress[id] = onProgress
       try {
         remote.send(Message.obtain(null, OmniVoiceWorkerService.MSG_SYNTHESIZE).apply {
           arg1 = id
@@ -155,11 +162,12 @@ class OmniVoiceRemoteClient(context: Context) : AutoCloseable {
         })
         // Low-end devices may take substantially longer than playback to
         // generate audio. Time out instead of leaving the UI spinner forever.
-        withTimeout(180_000) { result.await() }
+        withSpeechDeadline(180_000, "OmniVoice") { result.await() }
       } catch (e: RemoteException) {
         throw IllegalStateException("Offline OmniVoice process crashed while starting", e)
       } finally {
         pending.remove(id)
+        progress.remove(id)
       }
     }
   }

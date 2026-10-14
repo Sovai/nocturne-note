@@ -118,12 +118,15 @@ class OmniVoiceOnDeviceEngine(private val root: File, threads: Int = 2) : Closea
     }
   }
 
-  private fun runBackbone(ids: LongArray, audioMask: ByteArray, sequence: Int): FloatArray {
+  private fun runBackbone(ids: LongArray, audioMask: ByteArray, sequence: Int,
+                         onProgress: (String) -> Unit): FloatArray {
+    if (!embeddingDelegate.isInitialized()) onProgress("Loading audio embeddings")
     val embeddings = runFloat(embedding, "inputs_embeds", mapOf(
       "input_ids" to longs(ids, 1, 8, sequence.toLong()),
       "audio_mask" to boolean(audioMask, 1, sequence.toLong())
     ))
 
+    if (!llmDelegate.isInitialized()) onProgress("Loading language model")
     val llmInputs = linkedMapOf<String, OnnxTensor>()
     val floatType = expectedFloatType(llm, "inputs_embeds")
     llmInputs["inputs_embeds"] = floatTensor(embeddings,
@@ -141,6 +144,7 @@ class OmniVoiceOnDeviceEngine(private val root: File, threads: Int = 2) : Closea
       llmInputs[name] = floatTensor(FloatArray(0), longArrayOf(1, 8, 0, 128), floatType)
     }
     val hidden = runFloat(llm, "hidden_states", llmInputs)
+    if (!headsDelegate.isInitialized()) onProgress("Loading audio heads")
     return runFloat(heads, "logits", mapOf("hidden_states" to
       floatTensor(hidden, longArrayOf(1, sequence.toLong(), 1024),
         expectedFloatType(heads, "hidden_states"))))
@@ -153,10 +157,12 @@ class OmniVoiceOnDeviceEngine(private val root: File, threads: Int = 2) : Closea
   suspend fun synthesize(
     text: String,
     frames: Int = (text.length * 2.0).toInt().coerceIn(60, 256),
-    steps: Int = 32
+    steps: Int = 32,
+    onProgress: (String) -> Unit = {}
   ): SpeechAudio {
     require(steps in 4..32)
     require(frames in 24..400)
+    onProgress("Tokenizing text")
     val ids = tokenizer.encode(text).ids
     require(ids.isNotEmpty()) { "No text tokens" }
     require(ids.size <= 192) { "OmniVoice text too long; split the reading chunk" }
@@ -174,7 +180,8 @@ class OmniVoiceOnDeviceEngine(private val root: File, threads: Int = 2) : Closea
     for (step in 0 until steps) {
       currentCoroutineContext().ensureActive()
       if (stillMasked == 0) break
-      val logits = runBackbone(codes, mask, sequence)
+      onProgress("Generating speech ${step + 1}/$steps")
+      val logits = runBackbone(codes, mask, sequence, onProgress)
       require(logits.size == 8 * sequence * 1025) {
         "Unexpected OmniVoice audio-head shape; check ONNX converter version"
       }
@@ -214,7 +221,10 @@ class OmniVoiceOnDeviceEngine(private val root: File, threads: Int = 2) : Closea
     val audioCodes = LongArray(8 * frames) { idx ->
       codes[(idx / frames) * sequence + textLength + idx % frames]
     }
-    val waveform = runFloat(higgs, "waveform_24k", mapOf("codes" to
+    if (!higgsDelegate.isInitialized()) onProgress("Loading waveform decoder")
+    val decoder = higgs
+    onProgress("Decoding waveform")
+    val waveform = runFloat(decoder, "waveform_24k", mapOf("codes" to
       longs(audioCodes, 8, 1, frames.toLong())))
     require(waveform.isNotEmpty()) { "OmniVoice produced no audio" }
     return SpeechAudio(waveform, 24_000)
