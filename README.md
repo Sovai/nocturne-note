@@ -11,6 +11,15 @@ Native, **offline-first Android text editor** built with Kotlin, Jetpack Compose
 
 **Limitations:** Current PDF support extracts text rather than reproducing page layouts. File-manager opening currently imports a copy as a new note, not an editable link to the original document.
 
+
+## Read Aloud (Khmer)
+
+The editor supports **Read Aloud** for the current document or highlighted text in Edit mode. A compact speech controller offers play/pause, paragraph skipping, and speed adjustments. Markdown formatting is removed before synthesis.
+
+**Khmer voice**: Open Settings → **Read Aloud · Khmer** → **Download Khmer voice** to fetch the ONNX voice and tokens to app-private storage (~114 MB model plus tokens). Installed models are used for Khmer offline, with Android TTS as a fallback if the model is absent or inference fails. Settings displays the download progress, installed model size, error/retry status, and a confirmation before deletion. Downloading requires internet, but generated speech does not use a speech API or incur usage fees.
+
+The voice is the Khmer Meta MMS model converted to ONNX by [willwade](https://huggingface.co/willwade/mms-tts-multilingual-models-onnx), used locally through [Sherpa-ONNX](https://github.com/k2-fsa/sherpa-onnx). **Model license is CC BY-NC 4.0: noncommercial use only.** The model is not bundled in APKs; if commercial app distribution is planned, obtain appropriate model rights or replace the model. Deleting the downloaded model does not delete notes.
+
 ## Build
 
 Requirements: Android Studio, JDK 17, Android SDK 36.1, and Gradle 9.3.1.
