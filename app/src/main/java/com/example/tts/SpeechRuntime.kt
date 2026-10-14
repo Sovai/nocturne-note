@@ -7,6 +7,10 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Build
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 
 /**
  * Application-scoped playback, independent from Activity/ViewModel destruction.
@@ -24,6 +28,7 @@ object SpeechRuntime {
   lateinit var controller: ReadAloudController
     private set
 
+  private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private var audioManager: AudioManager? = null
   private var focusRequest: AudioFocusRequest? = null
   private var focusGranted = false
@@ -44,6 +49,7 @@ object SpeechRuntime {
     app = context.applicationContext
     models = KhmerModelManager(app)
     omniModels = OmniVoiceModelManager(app)
+    backgroundScope.launch { omniModels.refresh() }
     settings = SpeechSettingsStore(app)
     controller = ReadAloudController(app, models, omniModels, settings)
     audioManager = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
