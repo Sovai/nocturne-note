@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHost
@@ -85,7 +86,10 @@ class MainActivity : ComponentActivity() {
         Box(
           modifier = Modifier
             .fillMaxSize()
+            // Keep every screen inside the system bars, including while Zen mode
+            // removes its app bar. Insets are consumed here to prevent double padding.
             .background(MaterialTheme.colorScheme.background)
+            .safeDrawingPadding()
             .testTag("app_root_container")
         ) {
           AnimatedContent(
