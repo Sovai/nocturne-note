@@ -28,6 +28,7 @@ data class OmniVoiceModelState(
  */
 class OmniVoiceModelManager(context: Context) {
   private val directory = File(context.filesDir, "tts/omnivoice-onnx-int4")
+  val localModelDirectory: File get() = directory
   private val cachedCatalog = File(directory, "catalog.json")
   private val lock = Mutex()
   private val _state = MutableStateFlow(OmniVoiceModelState())
