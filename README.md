@@ -30,6 +30,12 @@ The voice is the Khmer Meta MMS model converted to ONNX by [willwade](https://hu
 - Model registry: https://github.com/Sovai/-nocturne-note-models
 - Both model releases are now published with SHA-256-verified assets: `mms-khm-v1` (~109 MiB) and `omnivoice-onnx-int4-v1` (~735 MiB). The app prefers verified GitHub Release assets for MMS, using upstream only when the catalog cannot be reached. The model registry is currently named `-nocturne-note-models`; both the old and corrected URLs are accepted to support renaming.
 
+#### Edge Read Aloud HTTP 403 investigation (October 2026)
+
+The previously embedded Edge WebSocket client generated an outdated 64-character plain-SHA256 `Sec-MS-GEC` token. Current upstream `rany2/edge-tts` uses a **v2 CS64-SHA256** token (`16HEX-64HEX`), so the Android client now implements that signature with upstream LGPL-3.0-or-later attribution and tests. It also removes the header/audio CRLF separator correctly and explains a server HTTP 403 without silently falling back to another TTS engine.
+
+A third-party website such as `edge-tts.com` can work even if a direct app request is denied, potentially because its own server makes synthesis requests. The site is not an authenticated, documented integration API for Nocturne Note. The current direct client might still receive 403 due to Microsoft endpoint restrictions or network conditions; this update is a protocol fix, **not guaranteed service access**. For guaranteed online access, a separately configured official Azure Speech account/key is a different integration.
+
 #### Online Edge Read Aloud (optional)
 
 Select **Edge Read Aloud · online** in Settings or the mini-player. Use Khmer voice **Piseth (male)** or **Sreymom (female)**, set speed (0.75–1.5×) and pitch (-40 to +40 Hz). It needs internet but no API key, PC, or model download. The app sends each selected passage over a secure WebSocket to Microsoft's Edge consumer Read Aloud service, receives MP3 audio and plays it through Android MediaPlayer. Previously generated audio is cached locally, bounded to 48 MiB. Pausing, seeking and existing notification controls remain available; network errors are shown rather than silently using another model.
