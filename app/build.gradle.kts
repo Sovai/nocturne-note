@@ -1,5 +1,3 @@
-import java.util.Properties
-
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -9,8 +7,6 @@ plugins {
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
-  // Pinned NDK supplies the C++ shared runtime required by DJL tokenizer JNI.
-  ndkVersion = "27.3.13750724"
 
   defaultConfig {
     applicationId = "com.sovai.nocturnenote"
@@ -81,13 +77,6 @@ dependencies {
   implementation(libs.androidx.room.ktx)
   implementation(libs.androidx.room.runtime)
 
-  // Sign-In via Credential Manager:
-  implementation("com.xdcobra.sherpa:sherpa-onnx:1.13.8-1")
-  // Full on-device OmniVoice ONNX inference; weights are downloaded separately.
-  // Sherpa already provides ai.onnxruntime classes and native runtime.
-  implementation("ai.djl:api:0.33.0")
-  implementation("ai.djl.huggingface:tokenizers:0.33.0")
-  implementation("ai.djl.android:tokenizer-native:0.33.0")
   implementation("com.squareup.okhttp3:okhttp:4.12.0")
   implementation(libs.kotlinx.coroutines.android)
   implementation(libs.kotlinx.coroutines.core)
@@ -107,51 +96,6 @@ dependencies {
   add("ksp", libs.androidx.room.compiler)
 }
 
-
-// DJL's tokenizer-native AAR ships libdjl_tokenizer.so but does not package
-// its ELF dependency libc++_shared.so. Android cannot load the tokenizer
-// without a same-ABI NDK C++ runtime inside the APK. Copy it from the pinned
-// Android NDK at build time, rather than downloading untrusted binaries.
-val stageTokenizerCxxRuntime = tasks.register<Copy>("stageTokenizerCxxRuntime") {
-  val pinnedNdk = android.ndkVersion
-  val androidAbis = mapOf(
-    "armeabi-v7a" to "arm-linux-androideabi",
-    "arm64-v8a" to "aarch64-linux-android",
-    "x86" to "i686-linux-android",
-    "x86_64" to "x86_64-linux-android"
-  )
-  val runtimeRoot = providers.provider {
-    val sdkLocation = providers.environmentVariable("ANDROID_HOME")
-      .orElse(providers.environmentVariable("ANDROID_SDK_ROOT"))
-      .orElse(providers.provider {
-        val props = Properties()
-        val local = rootProject.file("local.properties")
-        if (local.isFile) local.inputStream().use { props.load(it) }
-        props.getProperty("sdk.dir")
-          ?: throw GradleException("Cannot find Android SDK. Set ANDROID_HOME or sdk.dir.")
-      }).get()
-    val root = file(sdkLocation).resolve("ndk/$pinnedNdk/toolchains/llvm/prebuilt")
-    val host = root.listFiles()?.firstOrNull { it.isDirectory }
-      ?: throw GradleException("Android NDK $pinnedNdk is required to package OmniVoice tokenizer runtime")
-    host.resolve("sysroot/usr/lib")
-  }
-  androidAbis.forEach { (abi, triple) ->
-    from(runtimeRoot.map { root ->
-      root.resolve("$triple/libc++_shared.so").also { file ->
-        if (!file.isFile) throw GradleException("Missing NDK C++ runtime for $abi: $file")
-      }
-    }) { into(abi) }
-  }
-  into(layout.buildDirectory.dir("generated/native-tokenizer-runtime"))
-}
-// AGP 9 disallows TaskProviders in legacy sourceSets. Declare a static path
-// and an explicit task dependency before Android merges JNI folders.
-android.sourceSets.getByName("main").jniLibs.srcDir(
-  layout.buildDirectory.dir("generated/native-tokenizer-runtime").get().asFile
-)
-tasks.matching {
-  it.name == "preBuild" || it.name.endsWith("JniLibFolders")
-}.configureEach { dependsOn(stageTokenizerCxxRuntime) }
 
 // Show the actual assertion and bounds when a JVM/UI regression check fails.
 tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
