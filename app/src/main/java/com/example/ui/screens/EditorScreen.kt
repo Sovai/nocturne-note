@@ -441,17 +441,12 @@ fun EditorScreen(
         if (readAloudState.active || readAloudState.error != null) {
           SpeechPlayerBar(
             state = readAloudState,
-            preferences = speechPreferences,
-            androidVoices = androidVoices,
-            onAndroidVoice = { viewModel.setAndroidVoice(it) },
-            onEdgeVoice = { viewModel.setEdgeVoice(it) },
-            onEdgePitch = { viewModel.setEdgePitch(it) },
-            onEngine = { viewModel.setSpeechEngine(it) },
             onSeek = { viewModel.seekReadAloudChunk(it) },
             onToggle = { viewModel.toggleReadAloud() },
             onStop = { viewModel.stopReadAloud() },
             onSkip = { viewModel.skipReadAloudParagraph(it) },
-            onSpeed = { viewModel.setReadAloudSpeed(it) }
+            onSpeed = { viewModel.setReadAloudSpeed(it) },
+            onSettings = onOpenSettings
           )
         }
 
