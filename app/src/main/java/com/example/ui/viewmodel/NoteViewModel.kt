@@ -6,11 +6,9 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
-import com.example.tts.KhmerModelManager
 import com.example.tts.ReadAloudController
 import com.example.tts.SpeechSettingsStore
 import com.example.tts.SpeechEngine
-import com.example.tts.SpeechVoice
 import com.example.tts.SpeechRuntime
 import com.example.ui.editor.MarkdownEditorActions
 import androidx.lifecycle.AndroidViewModel
@@ -92,44 +90,28 @@ data class EditorSearchState(
 class NoteViewModel(application: Application) : AndroidViewModel(application) {
 
   init { SpeechRuntime.initialize(application) }
-  private val khmerModelManager get() = SpeechRuntime.models
   private val speechSettingsStore get() = SpeechRuntime.settings
   private val readAloudController get() = SpeechRuntime.controller
   val speechPreferences = SpeechRuntime.settings.state
-  val speechModelState = SpeechRuntime.models.state
-  val omniVoiceModelState = SpeechRuntime.omniModels.state
-  fun refreshOmniVoiceModels() { viewModelScope.launch { SpeechRuntime.omniModels.refresh() } }
-  fun downloadOmniVoiceModels() { viewModelScope.launch { SpeechRuntime.omniModels.download() } }
-  fun deleteOmniVoiceModels() {
-    if (SpeechRuntime.controller.state.value.active) SpeechRuntime.stop()
-    viewModelScope.launch { SpeechRuntime.omniModels.delete() }
-  }
   val readAloudState = SpeechRuntime.controller.state
   val availableAndroidVoices = SpeechRuntime.controller.availableAndroidVoices
+  val availableEdgeVoices = SpeechRuntime.controller.availableEdgeVoices
 
   fun setSpeechEngine(engine: SpeechEngine) = SpeechRuntime.engine(engine)
-  fun setSpeechVoice(voice: SpeechVoice) = speechSettingsStore.voice(voice)
+  fun setSpeechLanguage(language: String) {
+    speechSettingsStore.language(language)
+    if (readAloudController.state.value.active) readAloudController.seek(readAloudController.state.value.paragraph)
+  }
   fun setEdgeVoice(voice: String) {
     speechSettingsStore.edgeVoice(voice)
     if (readAloudController.state.value.active) readAloudController.skip(0)
   }
   fun setEdgePitch(pitch: Int) = speechSettingsStore.edgePitch(pitch)
-  fun setMmsTrimSilence(enabled: Boolean) {
-    speechSettingsStore.mmsTrimSilence(enabled)
-    if (readAloudController.state.value.active) readAloudController.skip(0)
-  }
-  fun setMmsPauseMs(ms: Int) = speechSettingsStore.mmsPauseMs(ms)
-  fun setMmsThreads(threads: Int) {
-    speechSettingsStore.mmsThreads(threads)
-    if (readAloudController.state.value.active) readAloudController.skip(0)
-  }
   fun setAndroidVoice(name: String) {
     speechSettingsStore.androidVoice(name)
     if (readAloudController.state.value.active) readAloudController.skip(0)
   }
   fun setBackgroundReading(enabled: Boolean) = SpeechRuntime.background(enabled)
-  fun downloadKhmerModel() { viewModelScope.launch { khmerModelManager.download() } }
-  fun deleteKhmerModel() { stopReadAloud(); viewModelScope.launch { khmerModelManager.delete() } }
   fun startReadAloud() {
     val current = _editorTextFieldValue.value
     val selection = current.selection
