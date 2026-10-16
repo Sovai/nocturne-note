@@ -8,6 +8,8 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -213,44 +215,77 @@ class ReadAloudController(
     val settings = preferences.state.value
     session = scope.launch {
       var edgeUnavailable = false
+      // Start generating up to three future passages immediately, while
+      // playback consumes the first. Only two network requests run at once.
+      val prefetch = if (settings.engine == SpeechEngine.EDGE) {
+        OrderedSpeechPrefetch(
+          scope = this,
+          total = paragraphs.size,
+          lookahead = 3,
+          concurrency = 2
+        ) { chunkIndex ->
+          val chunk = paragraphs[chunkIndex]
+          val locale = SpeechLanguage.resolve(chunk, settings.languageTag)
+          val voice = EdgeTtsClient.chooseVoice(
+            _availableEdgeVoices.value, locale, settings.edgeVoice
+          ) ?: error("No Edge voice for $locale")
+          edgeClient.synthesize(chunk, voice.name, settings.speed, settings.edgePitchHz)
+        }.also { it.prime(index) }
+      } else null
+
       try {
         for (i in index until paragraphs.size) {
+          currentCoroutineContext().ensureActive()
           if (noteId > 0) resumePrefs.edit().putInt("hash_$noteId", contentSignature)
             .putInt("chunk_$noteId", i).apply()
-          _state.value = _state.value.copy(paragraph = i, playing = false,
-            paused = false, loading = true, error = null, generationStage = "")
+
+          val buffered = prefetch?.isReady(i) == true
+          _state.value = _state.value.copy(
+            paragraph = i, playing = false, paused = false,
+            loading = settings.engine == SpeechEngine.EDGE && !edgeUnavailable && !buffered,
+            error = null,
+            generationStage = if (settings.engine == SpeechEngine.EDGE &&
+              !edgeUnavailable && !buffered) "Buffering next passage…" else ""
+          )
+
           val text = paragraphs[i]
-          val locale = SpeechLanguage.resolve(text, settings.languageTag)
-          val voice = EdgeTtsClient.chooseVoice(_availableEdgeVoices.value, locale, settings.edgeVoice)
-          if (settings.engine == SpeechEngine.EDGE && !edgeUnavailable && voice != null) {
+          if (settings.engine == SpeechEngine.EDGE && !edgeUnavailable) {
             try {
-              val audio = edgeClient.synthesize(text, voice.name, settings.speed, settings.edgePitchHz)
-              _state.value = _state.value.copy(engine = "Edge Read Aloud", playing = true,
-                loading = false, paused = false)
+              val audio = requireNotNull(prefetch).take(i)
+              currentCoroutineContext().ensureActive()
+              _state.value = _state.value.copy(
+                engine = "Edge Read Aloud", playing = true, loading = false,
+                paused = false, generationStage = ""
+              )
               player.play(audio)
               continue
             } catch (cancel: CancellationException) {
               throw cancel
             } catch (_: Exception) {
-              // Edge endpoints are unofficial and can return 403/429 or disconnect.
-              // Stop retrying this session and finish the note with local Android TTS.
+              // Stop competing network calls after a 403/429 or network failure;
+              // the remaining passages use Android TTS instead.
               edgeUnavailable = true
+              prefetch?.cancel()
               player.close()
             }
           }
-          speakAndroid(text, locale, settings.speed,
-            fallback = settings.engine == SpeechEngine.EDGE)
+          currentCoroutineContext().ensureActive()
+          speakAndroid(text, SpeechLanguage.resolve(text, settings.languageTag),
+            settings.speed, fallback = settings.engine == SpeechEngine.EDGE)
         }
         if (noteId > 0) resumePrefs.edit().remove("hash_$noteId")
           .remove("chunk_$noteId").apply()
         _state.value = ReadAloudState(speed = preferences.state.value.speed)
       } catch (_: CancellationException) {
-        // Skip, pause or stop cancels the active speech operation.
+        // Seek, stop, or switching engines cancels outstanding synthesis.
       } catch (e: Exception) {
-        if (generation == playbackGeneration)
+        if (generation == playbackGeneration) {
           _state.value = _state.value.copy(active = false, playing = false,
-            paused = false, loading = false, error = e.message ?: "Speech unavailable")
+            paused = false, loading = false, generationStage = "",
+            error = e.message ?: "Speech unavailable")
+        }
       } finally {
+        prefetch?.cancel()
         player.close()
         if (generation == playbackGeneration) edgePlayer = null
       }
