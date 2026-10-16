@@ -98,7 +98,7 @@ class EdgeTtsClient(context: Context) {
       val rate = ((speed - 1f) * 100f).toInt()
       val rateValue = if (rate >= 0) "+$rate%" else "$rate%"
       val pitchValue = if (pitch >= 0) "+${pitch}Hz" else "${pitch}Hz"
-      val locale = voice.split('-').take(2).joinToString("-")
+      val locale = voice.substringBeforeLast('-')
       return "<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='$locale'>" +
         "<voice name='$voice'><prosody pitch='$pitchValue' rate='$rateValue' volume='+0%'>" +
         escaped + "</prosody></voice></speak>"
