@@ -4,8 +4,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.async
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 
@@ -21,6 +21,7 @@ internal class OrderedSpeechPrefetch(
   private val total: Int,
   private val lookahead: Int = 3,
   concurrency: Int = 2,
+  private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
   private val synthesize: suspend (Int) -> ByteArray
 ) {
   init {
@@ -34,7 +35,7 @@ internal class OrderedSpeechPrefetch(
 
   private fun schedule(index: Int) {
     if (index !in 0 until total || inFlight.containsKey(index)) return
-    inFlight[index] = scope.async(Dispatchers.IO) {
+    inFlight[index] = scope.async(dispatcher) {
       try {
         Result.success(permits.withPermit { synthesize(index) })
       } catch (cancellation: CancellationException) {
