@@ -52,15 +52,28 @@ fun SpeechPlayerBar(
     modifier = Modifier.fillMaxWidth().testTag("read_aloud_player")) {
     Column(modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
       verticalArrangement = Arrangement.spacedBy(0.dp)) {
-      if (state.loading || state.error != null || state.engine.isNotBlank()) {
+      Row(modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically) {
         Text(
-          state.error ?: if (state.loading) "Preparing speech…" else state.engine,
+          state.error ?: if (state.loading) "Preparing speech…" else
+            state.engine.ifBlank { "Read Aloud" },
           style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
           color = if (state.error != null) MaterialTheme.colorScheme.error
             else MaterialTheme.colorScheme.onSurfaceVariant,
           maxLines = 1, overflow = TextOverflow.Ellipsis,
-          modifier = Modifier.padding(horizontal = 6.dp)
+          modifier = Modifier.weight(1f).padding(start = 6.dp)
         )
+        if (state.active) TextButton(onClick = {
+          onSpeed(if (state.speed >= 1.5f) 0.75f else (state.speed + 0.25f).coerceAtMost(1.5f))
+        }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 3.dp),
+          modifier = Modifier.testTag("read_aloud_speed")) {
+          Text(String.format(Locale.US, "%.2f×", state.speed),
+            style = MaterialTheme.typography.labelMedium)
+        }
+        IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)
+          .testTag("read_aloud_settings")) {
+          Icon(Icons.Default.Settings, contentDescription = "Read Aloud settings")
+        }
       }
       if (state.active && state.chunks.isNotEmpty()) {
         val last = (state.totalParagraphs - 1).coerceAtLeast(1)
@@ -79,35 +92,24 @@ fun SpeechPlayerBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically) {
         if (state.active) {
-          IconButton(onClick = { onSkip(-1) }, modifier = Modifier.size(40.dp)
+          IconButton(onClick = { onSkip(-1) }, modifier = Modifier.size(48.dp)
             .testTag("read_aloud_previous")) {
             Icon(Icons.Default.SkipPrevious, contentDescription = "Previous passage")
           }
-          IconButton(onClick = onToggle, enabled = !state.loading, modifier = Modifier.size(40.dp)
+          IconButton(onClick = onToggle, enabled = !state.loading, modifier = Modifier.size(48.dp)
             .testTag("read_aloud_toggle")) {
             Icon(if (state.playing) Icons.Default.Pause else Icons.Default.PlayArrow,
               contentDescription = if (state.playing) "Pause" else "Resume")
           }
-          IconButton(onClick = { onSkip(1) }, modifier = Modifier.size(40.dp)
+          IconButton(onClick = { onSkip(1) }, modifier = Modifier.size(48.dp)
             .testTag("read_aloud_next")) {
             Icon(Icons.Default.SkipNext, contentDescription = "Next passage")
           }
           Text("${state.paragraph + 1}/${state.totalParagraphs}",
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = 1, modifier = Modifier.weight(1f).padding(start = 4.dp))
-          TextButton(onClick = {
-            onSpeed(if (state.speed >= 1.5f) 0.75f else (state.speed + 0.25f).coerceAtMost(1.5f))
-          }, contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 3.dp),
-            modifier = Modifier.testTag("read_aloud_speed")) {
-            Text(String.format(Locale.US, "%.2f×", state.speed),
-              style = MaterialTheme.typography.labelMedium)
-          }
-          IconButton(onClick = onSettings, modifier = Modifier.size(40.dp)
-            .testTag("read_aloud_settings")) {
-            Icon(Icons.Default.Settings, contentDescription = "Read Aloud settings")
-          }
+            style = MaterialTheme.typography.labelSmall, maxLines = 1,
+            modifier = Modifier.weight(1f).padding(start = 6.dp))
         }
-        IconButton(onClick = onStop, modifier = Modifier.size(40.dp)
+        IconButton(onClick = onStop, modifier = Modifier.size(48.dp)
           .testTag("read_aloud_stop")) {
           Icon(Icons.Default.Close, contentDescription = "Stop and close reader")
         }
