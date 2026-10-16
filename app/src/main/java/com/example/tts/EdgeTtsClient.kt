@@ -175,10 +175,17 @@ class EdgeTtsClient(context: Context) {
     val audio = withSpeechDeadline(65_000L, "Edge Read Aloud") { requestAudio(markup) }
     withContext(Dispatchers.IO) {
       runCatching {
-        val temp = File(directory, "$hash.tmp")
-        temp.writeBytes(audio)
-        if (file.exists()) file.delete()
-        if (!temp.renameTo(file)) temp.delete()
+        // Simultaneous passages may contain identical text/voice. A unique
+        // temp name prevents prefetch workers from racing over the same file.
+        val temp = File(directory, "$hash.${UUID.randomUUID()}.tmp")
+        try {
+          temp.writeBytes(audio)
+          if (!temp.renameTo(file) && !file.exists()) {
+            throw IllegalStateException("Unable to cache Edge audio")
+          }
+        } finally {
+          temp.delete()
+        }
         var sum = 0L
         directory.listFiles()?.filter { it.extension == "mp3" }
           ?.sortedByDescending { it.lastModified() }?.forEach { f ->
