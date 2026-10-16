@@ -19,16 +19,11 @@ import kotlinx.coroutines.launch
  */
 object SpeechRuntime {
   private lateinit var app: Context
-  lateinit var models: KhmerModelManager
-    private set
-  lateinit var omniModels: OmniVoiceModelManager
-    private set
   lateinit var settings: SpeechSettingsStore
     private set
   lateinit var controller: ReadAloudController
     private set
 
-  private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private var audioManager: AudioManager? = null
   private var focusRequest: AudioFocusRequest? = null
   private var focusGranted = false
@@ -47,11 +42,8 @@ object SpeechRuntime {
   fun initialize(context: Context) {
     if (::controller.isInitialized) return
     app = context.applicationContext
-    models = KhmerModelManager(app)
-    omniModels = OmniVoiceModelManager(app)
-    backgroundScope.launch { omniModels.refresh() }
     settings = SpeechSettingsStore(app)
-    controller = ReadAloudController(app, models, omniModels, settings)
+    controller = ReadAloudController(app, settings)
     audioManager = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
   }
 
@@ -102,9 +94,6 @@ object SpeechRuntime {
   fun skip(delta: Int) = seek(controller.state.value.paragraph + delta)
 
   fun engine(engine: SpeechEngine) {
-    if (engine == SpeechEngine.OMNIVOICE) {
-      if (Build.VERSION.SDK_INT < 26 || !omniModels.state.value.installed) return
-    }
     settings.engine(engine)
     if (controller.state.value.active) controller.restartForNewEngine()
   }
