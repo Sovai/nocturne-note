@@ -95,6 +95,7 @@ class NoteViewModel(application: Application) : AndroidViewModel(application) {
   val speechPreferences = SpeechRuntime.settings.state
   val readAloudState = SpeechRuntime.controller.state
   val availableAndroidVoices = SpeechRuntime.controller.availableAndroidVoices
+  val availableAndroidLanguages = SpeechRuntime.controller.availableAndroidLanguages
   val availableEdgeVoices = SpeechRuntime.controller.availableEdgeVoices
 
   fun setSpeechEngine(engine: SpeechEngine) = SpeechRuntime.engine(engine)
