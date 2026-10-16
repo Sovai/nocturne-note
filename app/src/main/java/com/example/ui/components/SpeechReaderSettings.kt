@@ -50,6 +50,7 @@ import java.util.Locale
 fun SpeechReaderSettings(
   settings: SpeechPreferences,
   androidVoices: List<String>,
+  androidLanguages: List<String>,
   edgeVoices: List<EdgeVoice>,
   onEngine: (SpeechEngine) -> Unit,
   onLanguage: (String) -> Unit,
@@ -67,8 +68,8 @@ fun SpeechReaderSettings(
     SpeechLanguage.resolve("", "auto") else settings.languageTag
   val visibleVoices = edgeVoices.filter { it.locale == selectedLocale }
     .ifEmpty { edgeVoices.filter { it.locale.substringBefore('-') == selectedLocale.substringBefore('-') } }
-  val currentVoice = edgeVoices.firstOrNull { it.name == settings.edgeVoice }
-  val locales = edgeVoices.map { it.locale }.distinct()
+  val currentVoice = visibleVoices.firstOrNull { it.name == settings.edgeVoice }
+  val locales = (edgeVoices.map { it.locale } + androidLanguages).distinct()
     .sortedWith(compareBy({ Locale.forLanguageTag(it).getDisplayLanguage(Locale.getDefault()) }, { it }))
 
   Card(
