@@ -6,6 +6,7 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Build
+import java.io.File
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,6 +45,21 @@ object SpeechRuntime {
     app = context.applicationContext
     settings = SpeechSettingsStore(app)
     controller = ReadAloudController(app, settings)
+    // One-time cleanup of obsolete downloaded engines and their generated PCM cache.
+    // Never touch Room databases, note attachments, or current Edge MP3 cache.
+    val migration = app.getSharedPreferences("nocturne_speech_migration", Context.MODE_PRIVATE)
+    if (!migration.getBoolean("legacy_models_removed", false)) {
+      CoroutineScope(Dispatchers.IO).launch {
+        val old = listOf(
+          File(app.filesDir, "tts/mms-khm"),
+          File(app.filesDir, "tts/omnivoice-onnx-int4"),
+          File(app.cacheDir, "nocturne-speech-chunks"),
+          File(app.cacheDir, "omnivoice-generated")
+        )
+        if (old.all { !it.exists() || it.deleteRecursively() })
+          migration.edit().putBoolean("legacy_models_removed", true).apply()
+      }
+    }
     audioManager = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
   }
 
