@@ -107,7 +107,6 @@ fun EditorScreen(
   val readAloudState by viewModel.readAloudState.collectAsState()
   val speechPreferences by viewModel.speechPreferences.collectAsState()
   val androidVoices by viewModel.availableAndroidVoices.collectAsState()
-  val omniVoiceModel by viewModel.omniVoiceModelState.collectAsState()
   val editorTextFieldValue by viewModel.editorTextFieldValue.collectAsState()
   val activeNoteVersions by viewModel.activeNoteVersions.collectAsState()
   val searchState by viewModel.editorSearch.collectAsState()
@@ -442,21 +441,12 @@ fun EditorScreen(
         if (readAloudState.active || readAloudState.error != null) {
           SpeechPlayerBar(
             state = readAloudState,
-            preferences = speechPreferences,
-            androidVoices = androidVoices,
-            omniInstalled = omniVoiceModel.installed && android.os.Build.VERSION.SDK_INT >= 26,
-            onAndroidVoice = { viewModel.setAndroidVoice(it) },
-            onEdgeVoice = { viewModel.setEdgeVoice(it) },
-            onEdgePitch = { viewModel.setEdgePitch(it) },
-            onEngine = { viewModel.setSpeechEngine(it) },
             onSeek = { viewModel.seekReadAloudChunk(it) },
             onToggle = { viewModel.toggleReadAloud() },
             onStop = { viewModel.stopReadAloud() },
             onSkip = { viewModel.skipReadAloudParagraph(it) },
             onSpeed = { viewModel.setReadAloudSpeed(it) },
-            onMmsTrim = { viewModel.setMmsTrimSilence(it) },
-            onMmsPause = { viewModel.setMmsPauseMs(it) },
-            onMmsThreads = { viewModel.setMmsThreads(it) }
+            onSettings = onOpenSettings
           )
         }
 

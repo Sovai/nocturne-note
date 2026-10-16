@@ -20,10 +20,6 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication">
         <service
-            android:name=".tts.OmniVoiceWorkerService"
-            android:process=":omnivoice"
-            android:exported="false" />
-        <service
             android:name=".tts.SpeechPlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback" />

@@ -14,8 +14,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.example.tts.ReadAloudState
-import com.example.tts.SpeechEngine
-import com.example.tts.SpeechPreferences
 import com.example.ui.components.SpeechPlayerBar
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -30,12 +28,12 @@ import org.robolectric.annotation.Config
 class SpeechPlayerBarLayoutTest {
   @get:Rule val composeRule = createComposeRule()
 
-  @Test fun edgeButtonsRemainVisibleAt320Dp() = verifyTransport(SpeechEngine.EDGE, 320, 1f)
+  @Test fun edgeButtonsRemainVisibleAt320Dp() = verifyTransport(320, 1f)
 
   @Test fun longEngineAndLargeFontKeepButtonsVisibleAt280Dp() =
-    verifyTransport(SpeechEngine.OMNIVOICE, 280, 2f)
+    verifyTransport(280, 2f)
 
-  private fun verifyTransport(engine: SpeechEngine, width: Int, fontScale: Float) {
+  private fun verifyTransport(width: Int, fontScale: Float) {
     var skipped = 0
     var stopped = false
     composeRule.setContent {
@@ -46,12 +44,8 @@ class SpeechPlayerBarLayoutTest {
             SpeechPlayerBar(
               state = ReadAloudState(active = true, playing = true, paragraph = 4,
                 totalParagraphs = 120, chunks = List(120) { "ខ្មែរ" }),
-              preferences = SpeechPreferences(engine = engine),
-              androidVoices = emptyList(), omniInstalled = true,
               onToggle = {}, onStop = { stopped = true }, onSeek = {},
-              onSkip = { skipped = it }, onSpeed = {}, onEngine = {},
-              onAndroidVoice = {}, onEdgeVoice = {}, onEdgePitch = {},
-              onMmsTrim = {}, onMmsPause = {}, onMmsThreads = {}
+              onSkip = { skipped = it }, onSpeed = {}, onSettings = {}
             )
           }
         }

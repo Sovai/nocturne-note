@@ -6,6 +6,7 @@ import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.os.Build
+import java.io.File
 import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -19,16 +20,11 @@ import kotlinx.coroutines.launch
  */
 object SpeechRuntime {
   private lateinit var app: Context
-  lateinit var models: KhmerModelManager
-    private set
-  lateinit var omniModels: OmniVoiceModelManager
-    private set
   lateinit var settings: SpeechSettingsStore
     private set
   lateinit var controller: ReadAloudController
     private set
 
-  private val backgroundScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
   private var audioManager: AudioManager? = null
   private var focusRequest: AudioFocusRequest? = null
   private var focusGranted = false
@@ -47,11 +43,23 @@ object SpeechRuntime {
   fun initialize(context: Context) {
     if (::controller.isInitialized) return
     app = context.applicationContext
-    models = KhmerModelManager(app)
-    omniModels = OmniVoiceModelManager(app)
-    backgroundScope.launch { omniModels.refresh() }
     settings = SpeechSettingsStore(app)
-    controller = ReadAloudController(app, models, omniModels, settings)
+    controller = ReadAloudController(app, settings)
+    // One-time cleanup of obsolete downloaded engines and their generated PCM cache.
+    // Never touch Room databases, note attachments, or current Edge MP3 cache.
+    val migration = app.getSharedPreferences("nocturne_speech_migration", Context.MODE_PRIVATE)
+    if (!migration.getBoolean("legacy_models_removed", false)) {
+      CoroutineScope(Dispatchers.IO).launch {
+        val old = listOf(
+          File(app.filesDir, "tts/mms-khm"),
+          File(app.filesDir, "tts/omnivoice-onnx-int4"),
+          File(app.cacheDir, "nocturne-speech-chunks"),
+          File(app.cacheDir, "omnivoice-generated")
+        )
+        if (old.all { !it.exists() || it.deleteRecursively() })
+          migration.edit().putBoolean("legacy_models_removed", true).apply()
+      }
+    }
     audioManager = app.getSystemService(Context.AUDIO_SERVICE) as AudioManager
   }
 
@@ -102,9 +110,6 @@ object SpeechRuntime {
   fun skip(delta: Int) = seek(controller.state.value.paragraph + delta)
 
   fun engine(engine: SpeechEngine) {
-    if (engine == SpeechEngine.OMNIVOICE) {
-      if (Build.VERSION.SDK_INT < 26 || !omniModels.state.value.installed) return
-    }
     settings.engine(engine)
     if (controller.state.value.active) controller.restartForNewEngine()
   }
