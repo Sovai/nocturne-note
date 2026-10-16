@@ -9,7 +9,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -17,8 +16,6 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import java.util.Locale
-
-data class SpeechAudio(val samples: FloatArray, val sampleRate: Int)
 
 data class ReadAloudState(
   val active: Boolean = false,
@@ -121,14 +118,19 @@ class ReadAloudController(
   val state = _state.asStateFlow()
   private val _availableAndroidVoices = MutableStateFlow<List<String>>(emptyList())
   val availableAndroidVoices = _availableAndroidVoices.asStateFlow()
+  private val _availableAndroidLanguages = MutableStateFlow<List<String>>(emptyList())
+  val availableAndroidLanguages = _availableAndroidLanguages.asStateFlow()
   private val _availableEdgeVoices = MutableStateFlow(EdgeTtsClient.STARTER_VOICES)
   val availableEdgeVoices = _availableEdgeVoices.asStateFlow()
 
   init {
     scope.launch {
       if (ttsReady.await()) {
-        _availableAndroidVoices.value = androidTts.voices.orEmpty()
+        val voices = androidTts.voices.orEmpty()
+        _availableAndroidVoices.value = voices
           .sortedWith(compareBy({ it.locale.displayName }, { it.name })).map { it.name }
+        _availableAndroidLanguages.value = voices.map { it.locale.toLanguageTag() }
+          .filter { it != "und" }.distinct().sorted()
       }
     }
     scope.launch(Dispatchers.IO) {
