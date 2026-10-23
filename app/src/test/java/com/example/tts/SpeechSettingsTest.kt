@@ -6,16 +6,18 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SpeechSettingsTest {
-  @Test fun defaultsAreOfflineAndBackgroundIsOptIn() {
+  @Test fun defaultsToEdgeAndLocalFallback() {
     val state = SpeechPreferences()
-    assertEquals(SpeechEngine.AUTO, state.engine)
+    assertEquals(SpeechEngine.EDGE, state.engine)
+    assertEquals("auto", state.languageTag)
+    assertEquals("", state.edgeVoice)
     assertFalse(state.backgroundPlayback)
     assertEquals(1.0f, state.speed)
   }
 
-  @Test fun voicePresetsHaveStableCodes() {
-    assertEquals("auto", SpeechVoice.AUTO.code)
-    assertEquals("elder", SpeechVoice.ELDER.code)
-    assertTrue(SpeechEngine.OMNIVOICE.label.contains("on-device"))
+  @Test fun onlyTwoSupportedEnginesRemain() {
+    assertEquals(listOf(SpeechEngine.EDGE, SpeechEngine.ANDROID),
+      SpeechEngine.entries.toList())
+    assertTrue(SpeechEngine.EDGE.label.contains("Edge"))
   }
 }

@@ -1,37 +1,23 @@
 package com.example.tts
 
 import android.content.Context
-import android.media.AudioAttributes
-import android.media.AudioFormat
-import android.media.AudioTrack
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
-import com.k2fsa.sherpa.onnx.OfflineTts
-import com.k2fsa.sherpa.onnx.OfflineTtsConfig
-import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
-import com.k2fsa.sherpa.onnx.OfflineTtsVitsModelConfig
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.async
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import java.util.Locale
-
-data class SpeechAudio(val samples: FloatArray, val sampleRate: Int)
 
 data class ReadAloudState(
   val active: Boolean = false,
@@ -116,64 +102,64 @@ object SpokenMarkdown {
   fun containsKhmer(text: String): Boolean = text.any { it in '\u1780'..'\u17FF' }
 }
 
-/** Prefers a configured OmniVoice PC, then local MMS, then Android fallback. */
+/** Edge online speech with automatic, per-session Android fallback. */
 class ReadAloudController(
   context: Context,
-  private val modelManager: KhmerModelManager,
-  private val omniModels: OmniVoiceModelManager,
   private val preferences: SpeechSettingsStore
 ) {
-  private val appContext = context.applicationContext
   private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
   private val ttsReady = CompletableDeferred<Boolean>()
   private val androidTts = TextToSpeech(context.applicationContext) { result ->
     if (!ttsReady.isCompleted) ttsReady.complete(result == TextToSpeech.SUCCESS)
   }
-  private val resumePrefs = context.applicationContext.getSharedPreferences("nocturne_reader_position", Context.MODE_PRIVATE)
-  private val audioCache = SpeechChunkCache(context.applicationContext)
+  private val resumePrefs = context.applicationContext.getSharedPreferences(
+    "nocturne_reader_position", Context.MODE_PRIVATE)
   private val edgeClient = EdgeTtsClient(context.applicationContext)
   private var edgePlayer: EdgeAudioPlayer? = null
   private val _state = MutableStateFlow(ReadAloudState(speed = preferences.state.value.speed))
   val state = _state.asStateFlow()
   private val _availableAndroidVoices = MutableStateFlow<List<String>>(emptyList())
   val availableAndroidVoices = _availableAndroidVoices.asStateFlow()
+  private val _availableAndroidLanguages = MutableStateFlow<List<String>>(emptyList())
+  val availableAndroidLanguages = _availableAndroidLanguages.asStateFlow()
+  private val _availableEdgeVoices = MutableStateFlow(EdgeTtsClient.STARTER_VOICES)
+  val availableEdgeVoices = _availableEdgeVoices.asStateFlow()
 
   init {
     scope.launch {
       if (ttsReady.await()) {
-        _availableAndroidVoices.value = androidTts.voices.orEmpty()
-          .filter { it.locale.language == "km" || it.locale.language == "en" }
-          .sortedWith(compareBy({ it.locale.language != "km" }, { it.name }))
-          .map { it.name }
+        val voices = androidTts.voices.orEmpty()
+        _availableAndroidVoices.value = voices
+          .sortedWith(compareBy({ it.locale.displayName }, { it.name })).map { it.name }
+        _availableAndroidLanguages.value = voices.map { it.locale.toLanguageTag() }
+          .filter { it != "und" }.distinct().sorted()
       }
     }
+    scope.launch(Dispatchers.IO) {
+      _availableEdgeVoices.value = edgeClient.listVoices()
+    }
   }
+
   private var paragraphs = emptyList<String>()
   private var sourceMarkdown = ""
   private var noteId = 0L
   private var contentSignature = 0
-  private var stoppedByUser = false
   private var session: Job? = null
   private var playbackGeneration = 0L
-  @Volatile private var track: AudioTrack? = null
-  private var trackRate = 0
-  private var writtenSamples = 0L
 
   fun start(markdown: String, currentNoteId: Long = 0L) {
     stop()
     noteId = currentNoteId
     contentSignature = markdown.hashCode()
     sourceMarkdown = markdown
-    paragraphs = SpokenMarkdown.paragraphs(markdown,
-      if (preferences.state.value.engine == SpeechEngine.OMNIVOICE) 80 else 260)
+    paragraphs = SpokenMarkdown.paragraphs(markdown)
     if (paragraphs.isEmpty()) return
     val saved = if (noteId > 0 && resumePrefs.getInt("hash_$noteId", 0) == contentSignature)
       resumePrefs.getInt("chunk_$noteId", 0) else 0
-    val start = saved.coerceIn(0, paragraphs.lastIndex)
-    _state.value = _state.value.copy(active = true, loading = true,
-      paragraph = start, totalParagraphs = paragraphs.size, error = null,
-      chunks = paragraphs.toList(), noteId = noteId)
-    playFrom(start)
+    val index = saved.coerceIn(0, paragraphs.lastIndex)
+    _state.value = _state.value.copy(active = true, loading = true, paragraph = index,
+      totalParagraphs = paragraphs.size, error = null, chunks = paragraphs.toList(), noteId = noteId)
+    playFrom(index)
   }
 
   fun seek(index: Int) {
@@ -181,46 +167,33 @@ class ReadAloudController(
     session?.cancel()
     androidTts.stop()
     edgePlayer?.close()
-    closeTrack()
     playFrom(index.coerceIn(0, paragraphs.lastIndex))
   }
 
   fun restartForNewEngine() {
     if (!_state.value.active) return
-    val old = _state.value
-    val original = sourceMarkdown
-    val currentNoteId = noteId
-    val fraction = old.paragraph.toDouble() / maxOf(1, old.totalParagraphs - 1)
-    stop()
-    start(original, currentNoteId)
-    if (paragraphs.size > 1) seek((fraction * (paragraphs.size - 1)).toInt())
+    seek(_state.value.paragraph)
   }
 
   fun pauseForFocus() {
     if (_state.value.playing) toggle()
   }
 
-
   fun toggle() {
     val current = _state.value
     if (!current.active) return
     if (current.playing) {
-      if (current.engine.startsWith("Edge Read Aloud")) {
-        edgePlayer?.pause()
-      } else if (current.engine == "Android TTS") {
+      if (current.engine.startsWith("Edge")) edgePlayer?.pause()
+      else {
         session?.cancel()
         androidTts.stop()
-      } else track?.pause()
+      }
       _state.value = current.copy(playing = false, paused = true)
     } else if (current.paused) {
-      if (current.engine.startsWith("Edge Read Aloud")) {
+      if (current.engine.startsWith("Edge")) {
         edgePlayer?.resume()
         _state.value = current.copy(playing = true, paused = false)
-      } else if (current.engine == "Android TTS") playFrom(current.paragraph)
-      else {
-        track?.play()
-        _state.value = current.copy(playing = true, paused = false)
-      }
+      } else playFrom(current.paragraph)
     }
   }
 
@@ -230,147 +203,81 @@ class ReadAloudController(
     val speed = value.coerceIn(0.75f, 1.5f)
     preferences.speed(speed)
     _state.value = _state.value.copy(speed = speed)
-    if (_state.value.active) skip(0)
+    if (_state.value.active) seek(_state.value.paragraph)
   }
-
-  private data class Generated(val samples: SpeechAudio?, val engine: String, val mp3: ByteArray? = null)
-  private fun preferMms(settings: SpeechPreferences, text: String): Boolean =
-    (settings.engine == SpeechEngine.MMS ||
-      settings.engine == SpeechEngine.AUTO) &&
-      modelManager.isInstalled && SpokenMarkdown.containsKhmer(text)
 
   private fun playFrom(index: Int) {
     session?.cancel()
     edgePlayer?.close()
-    val currentEdgePlayer = EdgeAudioPlayer()
-    edgePlayer = currentEdgePlayer
+    val player = EdgeAudioPlayer()
+    edgePlayer = player
     val generation = ++playbackGeneration
     val settings = preferences.state.value
     session = scope.launch {
-      _state.value = _state.value.copy(active = true, loading = true,
-        playing = false, paused = false, paragraph = index, error = null,
-        generationStage = "")
-      var offline: OfflineTts? = null
-      var omni: OmniVoiceRemoteClient? = null
-      var pending: kotlinx.coroutines.Deferred<Result<Generated>>? = null
-
-      suspend fun render(chunk: String, chunkIndex: Int): Generated {
-        if (settings.engine == SpeechEngine.EDGE) {
-          val audio = edgeClient.synthesize(chunk, settings.edgeVoice,
-            settings.speed, settings.edgePitchHz)
-          currentCoroutineContext().ensureActive()
-          return Generated(null, "Edge Read Aloud · online", mp3 = audio)
-        }
-        if (settings.engine == SpeechEngine.OMNIVOICE) {
-          check(omniModels.state.value.installed) {
-            "Download the OmniVoice ONNX model in Settings first."
-          }
-          if (android.os.Build.VERSION.SDK_INT < 26) {
-            error("OmniVoice requires Android 8 or newer.")
-          }
-          if (omni == null) omni = OmniVoiceRemoteClient(appContext)
-          val engine = requireNotNull(omni)
-          val key = audioCache.key(chunk, settings.speed, false, "omnivoice-onnx-int4-v1")
-          withContext(Dispatchers.IO) { audioCache.get(key) }?.let {
-            return Generated(it, "OmniVoice ONNX · cached")
-          }
-          val audio = engine.synthesize(chunk) { stage ->
-            if (generation == playbackGeneration && _state.value.active &&
-              _state.value.paragraph == chunkIndex) {
-              _state.value = _state.value.copy(generationStage = stage)
-            }
-          }
-          currentCoroutineContext().ensureActive()
-          withContext(Dispatchers.IO) { runCatching { audioCache.put(key, audio) } }
-          return Generated(audio, "OmniVoice ONNX · local")
-        }
-        if (preferMms(settings, chunk)) {
-          val key = audioCache.key(chunk, settings.speed, settings.mmsTrimSilence)
-          withContext(Dispatchers.IO) { audioCache.get(key) }?.let {
-            return Generated(it, "Khmer MMS · cached")
-          }
-          try {
-            if (offline == null) offline = withContext(Dispatchers.IO) {
-              OfflineTts(config = OfflineTtsConfig(
-                model = OfflineTtsModelConfig(
-                  vits = OfflineTtsVitsModelConfig(
-                    model = modelManager.modelPath, tokens = modelManager.tokensPath),
-                  numThreads = settings.mmsThreads
-                )
-              ))
-            }
-            val model = requireNotNull(offline)
-            val audio = withContext(Dispatchers.Default) {
-              model.generate(text = chunk, speed = settings.speed)
-            }
-            currentCoroutineContext().ensureActive()
-            val speech = SpeechAudio(audio.samples, audio.sampleRate)
-            val processed = if (settings.mmsTrimSilence) trimSpeechSilence(speech) else speech
-            withContext(Dispatchers.IO) { runCatching { audioCache.put(key, processed) } }
-            return Generated(processed, "Khmer MMS")
-          } catch (e: CancellationException) { throw e }
-          catch (e: Throwable) {
-            currentCoroutineContext().ensureActive()
-            withContext(NonCancellable + Dispatchers.IO) { runCatching { offline?.release() } }
-            offline = null
-            // Do not silently change voice engines on an MMS error.
-            if (settings.engine == SpeechEngine.MMS) {
-              throw IllegalStateException("MMS synthesis failed: " +
-                (e.message ?: e.javaClass.simpleName), e)
-            }
-          }
-        }
-        return Generated(null, "Android TTS")
-      }
+      var edgeUnavailable = false
+      // Start generating up to three future passages immediately, while
+      // playback consumes the first. Only two network requests run at once.
+      val prefetch = if (settings.engine == SpeechEngine.EDGE) {
+        OrderedSpeechPrefetch(
+          scope = this,
+          total = paragraphs.size,
+          lookahead = 3,
+          concurrency = 2
+        ) { chunkIndex ->
+          val chunk = paragraphs[chunkIndex]
+          val locale = SpeechLanguage.resolve(chunk, settings.languageTag)
+          val voice = EdgeTtsClient.chooseVoice(
+            _availableEdgeVoices.value, locale, settings.edgeVoice
+          ) ?: error("No Edge voice for $locale")
+          edgeClient.synthesize(chunk, voice.name, settings.speed, settings.edgePitchHz)
+        }.also { it.prime(index) }
+      } else null
 
       try {
-        // Start the next generation while the current PCM audio is playing.
-        // MMS used to synthesize only AFTER playback ended, causing long silence.
         for (i in index until paragraphs.size) {
           currentCoroutineContext().ensureActive()
           if (noteId > 0) resumePrefs.edit().putInt("hash_$noteId", contentSignature)
             .putInt("chunk_$noteId", i).apply()
-          _state.value = _state.value.copy(paragraph = i, loading = true,
-            playing = false, error = null, generationStage = "")
-          val current = if (pending != null) {
-            pending.await().getOrThrow().also { pending = null }
-          } else withContext(Dispatchers.IO) { render(paragraphs[i], i) }
 
-          if (i < paragraphs.lastIndex) {
-            pending = async(Dispatchers.IO) { runCatching { render(paragraphs[i + 1], i + 1) } }
-          }
-          if (current.mp3 != null) {
-            while (_state.value.paused) delay(35)
-            _state.value = _state.value.copy(engine = current.engine, playing = true,
-              loading = false, paused = false)
-            currentEdgePlayer.play(current.mp3)
-          } else if (current.samples != null) {
-            while (_state.value.paused) delay(35)
-            _state.value = _state.value.copy(engine = current.engine, playing = true,
-              loading = false, paused = false)
-            playSamples(current.samples)
-            if (current.engine.startsWith("Khmer MMS") && i < paragraphs.lastIndex && preferences.state.value.mmsPauseMs > 0) {
-              var remaining = preferences.state.value.mmsPauseMs.toLong()
-              while (remaining > 0) {
-                currentCoroutineContext().ensureActive()
-                if (_state.value.paused) { delay(35); continue }
-                val step = minOf(remaining, 20L)
-                delay(step)
-                remaining -= step
-              }
+          val buffered = prefetch?.isReady(i) == true
+          _state.value = _state.value.copy(
+            paragraph = i, playing = false, paused = false,
+            loading = settings.engine == SpeechEngine.EDGE && !edgeUnavailable && !buffered,
+            error = null,
+            generationStage = if (settings.engine == SpeechEngine.EDGE &&
+              !edgeUnavailable && !buffered) "Buffering next passage…" else ""
+          )
+
+          val text = paragraphs[i]
+          if (settings.engine == SpeechEngine.EDGE && !edgeUnavailable) {
+            try {
+              val audio = requireNotNull(prefetch).take(i)
+              currentCoroutineContext().ensureActive()
+              _state.value = _state.value.copy(
+                engine = "Edge Read Aloud", playing = true, loading = false,
+                paused = false, generationStage = ""
+              )
+              player.play(audio)
+              continue
+            } catch (cancel: CancellationException) {
+              throw cancel
+            } catch (_: Exception) {
+              // Stop competing network calls after a 403/429 or network failure;
+              // the remaining passages use Android TTS instead.
+              edgeUnavailable = true
+              prefetch?.cancel()
+              player.close()
             }
-          } else {
-            // Native Android TTS cannot prefetch PCM and does its own queue.
-            pending?.cancel()
-            pending = null
-            speakAndroid(paragraphs[i], settings.speed)
           }
+          currentCoroutineContext().ensureActive()
+          speakAndroid(text, SpeechLanguage.resolve(text, settings.languageTag),
+            settings.speed, fallback = settings.engine == SpeechEngine.EDGE)
         }
         if (noteId > 0) resumePrefs.edit().remove("hash_$noteId")
           .remove("chunk_$noteId").apply()
         _state.value = ReadAloudState(speed = preferences.state.value.speed)
       } catch (_: CancellationException) {
-        // User navigated, paused Android TTS, skipped, or stopped.
+        // Seek, stop, or switching engines cancels outstanding synthesis.
       } catch (e: Exception) {
         if (generation == playbackGeneration) {
           _state.value = _state.value.copy(active = false, playing = false,
@@ -378,42 +285,30 @@ class ReadAloudController(
             error = e.message ?: "Speech unavailable")
         }
       } finally {
-        // Wait until an in-flight JNI synthesis call has exited before releasing
-        // its native model. Cancellation alone cannot interrupt generate().
-        withContext(NonCancellable) {
-          pending?.cancelAndJoin()
-          withContext(Dispatchers.IO) {
-            runCatching { offline?.release() }
-            runCatching { omni?.close() }
-          }
-        }
-        currentEdgePlayer.close()
-        if (generation == playbackGeneration) {
-          edgePlayer = null
-          closeTrack()
-        }
+        prefetch?.cancel()
+        player.close()
+        if (generation == playbackGeneration) edgePlayer = null
       }
     }
   }
 
-  private suspend fun speakAndroid(text: String, speed: Float) {
-    if (!ttsReady.await()) error("Android speech engine is unavailable")
-    val locale = if (SpokenMarkdown.containsKhmer(text))
-      Locale.forLanguageTag("km-KH") else Locale.ENGLISH
-    val preferredVoice = preferences.state.value.androidVoiceName
-    val preferred = androidTts.voices?.firstOrNull {
-      it.name == preferredVoice && it.locale.language == locale.language
+  private suspend fun speakAndroid(text: String, languageTag: String, speed: Float, fallback: Boolean) {
+    if (!ttsReady.await()) error("Android TTS is unavailable")
+    val locale = Locale.forLanguageTag(languageTag)
+    val requested = preferences.state.value.androidVoiceName
+    val preferred = androidTts.voices?.firstOrNull { it.name == requested &&
+      it.locale.language == locale.language }
+    val availability = androidTts.setLanguage(locale)
+    if (availability == TextToSpeech.LANG_MISSING_DATA ||
+      availability == TextToSpeech.LANG_NOT_SUPPORTED) {
+      error("Install an Android TTS voice for " + locale.displayName +
+        " or choose another read-aloud language")
     }
     if (preferred != null) androidTts.voice = preferred
-    val availability = if (preferred == null) androidTts.setLanguage(locale)
-      else TextToSpeech.LANG_AVAILABLE
-    if (availability == TextToSpeech.LANG_MISSING_DATA ||
-        availability == TextToSpeech.LANG_NOT_SUPPORTED) {
-      error("No Android voice installed for " + locale.displayLanguage)
-    }
     androidTts.setSpeechRate(speed)
-    _state.value = _state.value.copy(engine = "Android TTS", playing = true,
-      paused = false, loading = false)
+    _state.value = _state.value.copy(
+      engine = if (fallback) "Android TTS · fallback" else "Android TTS",
+      playing = true, paused = false, loading = false)
     suspendCancellableCoroutine<Unit> { cont ->
       val id = "nocturne-" + System.nanoTime()
       androidTts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
@@ -428,73 +323,9 @@ class ReadAloudController(
         }
       })
       cont.invokeOnCancellation { androidTts.stop() }
-      if (androidTts.speak(text, TextToSpeech.QUEUE_FLUSH, null, id) == TextToSpeech.ERROR) {
+      if (androidTts.speak(text, TextToSpeech.QUEUE_FLUSH, null, id) == TextToSpeech.ERROR)
         if (cont.isActive) cont.resumeWithException(IllegalStateException("Android speech failed"))
-      }
     }
-  }
-
-  private suspend fun playSamples(audio: SpeechAudio) = withContext(Dispatchers.IO) {
-    val output = track?.takeIf { trackRate == audio.sampleRate } ?: run {
-      closeTrack()
-      val minimum = AudioTrack.getMinBufferSize(audio.sampleRate,
-        AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT)
-      check(minimum > 0)
-      AudioTrack.Builder()
-        .setAudioAttributes(AudioAttributes.Builder()
-          .setUsage(AudioAttributes.USAGE_MEDIA)
-          .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
-        .setAudioFormat(AudioFormat.Builder()
-          .setEncoding(AudioFormat.ENCODING_PCM_FLOAT)
-          .setSampleRate(audio.sampleRate)
-          .setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
-        .setBufferSizeInBytes(maxOf(minimum, 16_384))
-        .setTransferMode(AudioTrack.MODE_STREAM).build().also {
-          check(it.state == AudioTrack.STATE_INITIALIZED)
-          track = it
-          trackRate = audio.sampleRate
-          writtenSamples = 0
-          it.play()
-          if (_state.value.engine.startsWith("OmniVoice")) {
-            runCatching {
-              it.playbackParams = android.media.PlaybackParams()
-                .setSpeed(preferences.state.value.speed)
-                .setPitch(1f)
-            }
-          }
-        }
-    }
-    if (_state.value.engine.startsWith("OmniVoice")) {
-      runCatching {
-        output.playbackParams = android.media.PlaybackParams()
-          .setSpeed(preferences.state.value.speed)
-          .setPitch(1f)
-      }
-    }
-    var offset = 0
-    while (offset < audio.samples.size) {
-      currentCoroutineContext().ensureActive()
-      while (_state.value.paused) delay(35)
-      // Nonblocking writes let pause/skip terminate promptly without a deadlock.
-      val written = output.write(audio.samples, offset, minOf(4096, audio.samples.size - offset),
-        AudioTrack.WRITE_NON_BLOCKING)
-      check(written >= 0) { "Audio output error " + written }
-      if (written == 0) delay(8) else {
-        offset += written
-        writtenSamples += written
-      }
-    }
-    while (output.playbackHeadPosition.toLong() < writtenSamples) {
-      currentCoroutineContext().ensureActive()
-      delay(20)
-    }
-  }
-
-  private fun closeTrack() {
-    track?.let { runCatching { it.pause(); it.flush(); it.release() } }
-    track = null
-    trackRate = 0
-    writtenSamples = 0
   }
 
   fun stop() {
@@ -504,7 +335,6 @@ class ReadAloudController(
     androidTts.stop()
     edgePlayer?.close()
     edgePlayer = null
-    closeTrack()
     paragraphs = emptyList()
     sourceMarkdown = ""
     _state.value = ReadAloudState(speed = preferences.state.value.speed)
